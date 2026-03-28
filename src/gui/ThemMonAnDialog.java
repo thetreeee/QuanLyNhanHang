@@ -8,15 +8,13 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
-import java.io.File;
+import java.util.List;
 
 public class ThemMonAnDialog extends JDialog {
 
     private JTextField txtMaMon, txtTenMon, txtDonViTinh;
     private JComboBox<String> cbLoaiMon, cbTrangThai;
-    private JLabel lblImagePreview, lblMaMonError;
+    private JLabel lblImagePreview;
     private String selectedImagePath = ""; 
     private JButton btnThem, btnHuy, btnChonAnh;
     private ThucDonPanel parentPanel;
@@ -32,7 +30,7 @@ public class ThemMonAnDialog extends JDialog {
     }
 
     private void initComponents() {
-        setSize(550, 500); // Tăng chiều cao một chút để chứa dòng thông báo lỗi
+        setSize(550, 450); 
         setLocationRelativeTo(getParent());
         setLayout(new BorderLayout());
 
@@ -40,44 +38,40 @@ public class ThemMonAnDialog extends JDialog {
         pnlContent.setBorder(new EmptyBorder(20, 20, 20, 20));
         pnlContent.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 10, 5, 10);
+        gbc.insets = new Insets(8, 10, 8, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // --- CỘT 1: MÃ MÓN & THÔNG BÁO LỖI ---
+        // --- CỘT 1: MÃ MÓN ĂN ---
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.3;
         pnlContent.add(new JLabel("Mã món ăn:"), gbc);
         
         gbc.gridx = 1; gbc.weightx = 0.7;
-        txtMaMon = new JTextField();
+        txtMaMon = new JTextField(generateNewMaMon()); // Gọi hàm sinh mã tự động
+        txtMaMon.setEditable(false); // Khóa ô nhập liệu
+        txtMaMon.setBackground(new Color(240, 240, 240)); // Tô nền xám nhạt
+        txtMaMon.setFont(new Font("Segoe UI", Font.BOLD, 14));
         pnlContent.add(txtMaMon, gbc);
 
-        // Nhãn thông báo lỗi nằm ngay dưới ô mã món
-        gbc.gridy = 1;
-        lblMaMonError = new JLabel(" "); // Để trống để giữ chỗ layout
-        lblMaMonError.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblMaMonError.setForeground(Color.RED);
-        pnlContent.add(lblMaMonError, gbc);
-
         // --- CÁC TRƯỜNG TIẾP THEO ---
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0; gbc.gridy = 1;
         pnlContent.add(new JLabel("Tên món:"), gbc);
         gbc.gridx = 1;
         txtTenMon = new JTextField();
         pnlContent.add(txtTenMon, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0; gbc.gridy = 2;
         pnlContent.add(new JLabel("Đơn vị tính:"), gbc);
         gbc.gridx = 1;
         txtDonViTinh = new JTextField("Phần");
         pnlContent.add(txtDonViTinh, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridx = 0; gbc.gridy = 3;
         pnlContent.add(new JLabel("Phân loại:"), gbc);
         gbc.gridx = 1;
         cbLoaiMon = new JComboBox<>(new String[]{"Khai vị", "Món chính", "Món nước", "Tráng miệng"});
         pnlContent.add(cbLoaiMon, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 5;
+        gbc.gridx = 0; gbc.gridy = 4;
         pnlContent.add(new JLabel("Trạng thái:"), gbc);
         gbc.gridx = 1;
         cbTrangThai = new JComboBox<>(new String[]{"Đang bán", "Tạm ngưng"});
@@ -115,44 +109,33 @@ public class ThemMonAnDialog extends JDialog {
         pnlButtons.add(btnThem);
         pnlButtons.add(btnHuy);
         add(pnlButtons, BorderLayout.SOUTH);
-
-        // --- SỰ KIỆN FOCUS ĐỂ KIỂM TRA MÃ MÓN ---
-        txtMaMon.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                validateMaMon();
-            }
-        });
     }
 
-    private void validateMaMon() {
-        String maMon = txtMaMon.getText().trim();
-        boolean isMaValid = maMon.matches("^M\\d{3}$");
-        boolean isDuplicate = false;
-
-        // Nếu đúng định dạng thì mới đi check trùng trong DB
-        if (isMaValid) {
-            isDuplicate = monAn_dao.exists(maMon);
-        }
-
-        if (!maMon.isEmpty()) {
-            if (!isMaValid) {
-                // Trường hợp sai định dạng
-                txtMaMon.setBorder(BorderFactory.createLineBorder(Color.RED));
-                lblMaMonError.setText("* Mã món không hợp lệ (VD: 'M001')");
-            } else if (isDuplicate) {
-                // Trường hợp trùng mã
-                txtMaMon.setBorder(BorderFactory.createLineBorder(Color.RED));
-                lblMaMonError.setText("* Mã món này đã tồn tại!");
-            } else {
-                // Mọi thứ đều ổn
-                txtMaMon.setBorder(UIManager.getLookAndFeel().getDefaults().getBorder("TextField.border"));
-                lblMaMonError.setText(" ");
+    // --- HÀM TỰ ĐỘNG SINH MÃ MÓN ĂN ---
+    private String generateNewMaMon() {
+        int maxId = 0;
+        try {
+            // Lấy toàn bộ món ăn bằng cách truyền chuỗi rỗng
+            List<MonAn> dsMonAn = monAn_dao.searchMonAn(""); 
+            for (MonAn mon : dsMonAn) {
+                String ma = mon.getMaMon();
+                if (ma != null && ma.startsWith("M")) {
+                    try {
+                        // Cắt bỏ chữ "M" và chuyển phần số thành Integer
+                        int currentId = Integer.parseInt(ma.substring(1));
+                        if (currentId > maxId) {
+                            maxId = currentId;
+                        }
+                    } catch (NumberFormatException e) {
+                        // Bỏ qua các mã không đúng định dạng M + số
+                    }
+                }
             }
-        } else {
-            lblMaMonError.setText(" ");
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
-        checkFields();
+        // Tăng mã lớn nhất lên 1, định dạng 3 chữ số (VD: M001, M002)
+        return String.format("M%03d", maxId + 1);
     }
 
     private void setupValidation() {
@@ -161,25 +144,18 @@ public class ThemMonAnDialog extends JDialog {
             public void removeUpdate(DocumentEvent e) { checkFields(); }
             public void changedUpdate(DocumentEvent e) { checkFields(); }
         };
-        // Các ô này vẫn check liên tục để mở nút Lưu
-        txtMaMon.getDocument().addDocumentListener(docListener);
+        // Bỏ theo dõi txtMaMon vì nó tự sinh
         txtTenMon.getDocument().addDocumentListener(docListener);
         txtDonViTinh.getDocument().addDocumentListener(docListener);
         checkFields();
     }
 
     private void checkFields() {
-        String maMon = txtMaMon.getText().trim();
         String tenMon = txtTenMon.getText().trim();
         String donVi = txtDonViTinh.getText().trim();
         
-        boolean isMaValid = maMon.matches("^M\\d{3}$");
-        // Check thêm điều kiện không trùng mã
-        boolean isDuplicate = isMaValid && monAn_dao.exists(maMon);
-
-        boolean isReady = isMaValid
-                && !isDuplicate
-                && !tenMon.isEmpty()
+        // Điều kiện: Tên món, đơn vị tính không được trống và phải có chọn ảnh
+        boolean isReady = !tenMon.isEmpty()
                 && !donVi.isEmpty()
                 && !selectedImagePath.trim().isEmpty();
         
@@ -213,7 +189,7 @@ public class ThemMonAnDialog extends JDialog {
                 if (parentPanel != null) parentPanel.loadDataFromDatabase(); 
                 this.dispose();
             } else {
-                JOptionPane.showMessageDialog(this, "Mã món đã tồn tại hoặc dữ liệu lỗi!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Lỗi khi lưu dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);

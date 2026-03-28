@@ -11,13 +11,14 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ThemGiaBanDialog extends JDialog {
 
@@ -37,7 +38,7 @@ public class ThemGiaBanDialog extends JDialog {
     private GiaBan_DAO giaBan_dao = new GiaBan_DAO();
     
     private final Color BTN_BLUE = new Color(54, 92, 245);
-    private final Color HEADER_BG = new Color(255, 245, 205); // Màu vàng nhạt giống hình của thầy
+    private final Color HEADER_BG = new Color(255, 245, 205); 
 
     public ThemGiaBanDialog(Frame owner, QuanLyGiaBanPanel parentPanel) {
         super(owner, "Thiết Lập Bảng Giá Mới", true);
@@ -50,7 +51,7 @@ public class ThemGiaBanDialog extends JDialog {
     }
 
     private void initComponents() {
-        setSize(800, 600); // Mở rộng chiều ngang để chứa bảng Table
+        setSize(800, 600); 
         setLocationRelativeTo(getParent());
         setLayout(new BorderLayout(0, 10));
         ((JPanel)getContentPane()).setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -69,6 +70,7 @@ public class ThemGiaBanDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         txtMaBangGia = new JTextField();
+        txtMaBangGia.setEditable(false); // Khóa lại không cho sửa mã sinh tự động
         txtMoTa = new JTextField();
         dateBatDau = new JDateChooser();
         dateBatDau.setDateFormatString("dd/MM/yyyy");
@@ -155,15 +157,9 @@ public class ThemGiaBanDialog extends JDialog {
         add(pnlButtons, BorderLayout.SOUTH);
     }
 
-    /**
-     * Load toàn bộ danh sách món ăn vào bảng. Cột giá để trống.
-     */
     private void loadDanhSachMonAnVaoBang() {
-        // Cần viết thêm 1 hàm getAllMonAn() cơ bản trong MonAn_DAO nếu chưa có
-        // Tạm dùng hàm search với chuỗi rỗng để lấy hết
         List<MonAn> dsMon = monAn_dao.searchMonAn(""); 
         for (MonAn m : dsMon) {
-            // Mặc định ô giá để trống (null hoặc chuỗi rỗng)
             modelChiTiet.addRow(new Object[]{m.getMaMon(), m.getTenMon(), ""});
         }
     }
@@ -191,7 +187,46 @@ public class ThemGiaBanDialog extends JDialog {
             JOptionPane.showMessageDialog(this, "Mã bảng giá đã tồn tại!"); return;
         }
 
-        // 2. Thu thập dữ liệu từ Detail (JTable)
+        // 2. Thu thập dữ liệu từ Detail (JTable) để chuẩn bị kiểm tra
+        List<String> dsMaMonDaNhapGia = new ArrayList<>();
+        Map<String, Double> dsGiaMoi = new HashMap<>();
+
+        for (int i = 0; i < tableChiTiet.getRowCount(); i++) {
+            String maMon = tableChiTiet.getValueAt(i, 0).toString();
+            Object giaObj = tableChiTiet.getValueAt(i, 2);
+            String giaStr = (giaObj != null) ? giaObj.toString().trim() : "";
+            
+            // Chỉ thêm vào danh sách nếu có nhập giá
+            if (!giaStr.isEmpty()) {
+                try {
+                    double giaBan = Double.parseDouble(giaStr);
+                    if (giaBan > 0) {
+                        dsMaMonDaNhapGia.add(maMon);
+                        dsGiaMoi.put(maMon, giaBan);
+                    }
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Lỗi: Giá của món " + maMon + " không hợp lệ!");
+                    return; // Ngừng lại ngay nếu có chữ hoặc ký tự lạ
+                }
+            }
+        }
+
+        if (dsMaMonDaNhapGia.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Bạn phải thiết lập giá cho ít nhất một món ăn!");
+            return;
+        }
+
+        // 3. KIỂM TRA RÀNG BUỘC CHỐNG TRÙNG LẤP THỜI GIAN (OVERLAP)
+        if (trangThai.equals("Đang áp dụng")) {
+            String overlapMsg = giaBan_dao.checkMonDaCoGia(dsMaMonDaNhapGia, maBG, dBD, dKT);
+            if (overlapMsg != null) {
+                JOptionPane.showMessageDialog(this, overlapMsg + "\nVui lòng điều chỉnh lại ngày hoặc tạm ngưng bảng giá cũ!", 
+                                              "Cảnh báo trùng lấp giá", JOptionPane.WARNING_MESSAGE);
+                return; // Chặn lại không cho lưu
+            }
+        }
+
+        // 4. Bắt đầu lưu vào Database (Transaction)
         Connection con = null;
         try {
             con = SQLConnection.getConnection();
@@ -207,49 +242,30 @@ public class ThemGiaBanDialog extends JDialog {
             pst1.setString(5, trangThai);
             pst1.executeUpdate();
 
-            // Bước B: Lưu Detail (Chi tiết bảng giá)
-            boolean hasAtLeastOnePrice = false;
+            // Bước B: Lưu Detail (Chi tiết bảng giá) bằng Batch
             String sqlCT = "INSERT INTO ChiTietBangGia (maBangGia, maMon, giaBan) VALUES (?, ?, ?)";
             PreparedStatement pst2 = con.prepareStatement(sqlCT);
 
-            // Quét từng dòng trong bảng JTable
-            for (int i = 0; i < tableChiTiet.getRowCount(); i++) {
-                String maMon = tableChiTiet.getValueAt(i, 0).toString();
-                Object giaObj = tableChiTiet.getValueAt(i, 2);
-                
-                String giaStr = (giaObj != null) ? giaObj.toString().trim() : "";
-                
-                // CHỈ THÊM VÀO CHI TIẾT NẾU NGƯỜI DÙNG CÓ NHẬP GIÁ (> 0)
-                if (!giaStr.isEmpty()) {
-                    try {
-                        double giaBan = Double.parseDouble(giaStr);
-                        if (giaBan > 0) {
-                            pst2.setString(1, maBG);
-                            pst2.setString(2, maMon);
-                            pst2.setDouble(3, giaBan);
-                            pst2.addBatch();
-                            hasAtLeastOnePrice = true;
-                        }
-                    } catch (NumberFormatException ex) {
-                        JOptionPane.showMessageDialog(this, "Lỗi: Giá của món " + maMon + " không hợp lệ!");
-                        con.rollback();
-                        return;
-                    }
-                }
+            for (String maMon : dsMaMonDaNhapGia) {
+                pst2.setString(1, maBG);
+                pst2.setString(2, maMon);
+                pst2.setDouble(3, dsGiaMoi.get(maMon));
+                pst2.addBatch();
             }
 
-            if (!hasAtLeastOnePrice) {
-                JOptionPane.showMessageDialog(this, "Bạn phải thiết lập giá cho ít nhất một món ăn!");
-                con.rollback();
-                return;
-            }
-
-            // Chạy Batch Insert chi tiết
             pst2.executeBatch();
             con.commit();
             
             JOptionPane.showMessageDialog(this, "Thiết lập bảng giá thành công!");
-            if (parentPanel != null) parentPanel.loadDataToTable();
+            if (parentPanel != null) {
+                parentPanel.loadDataToTable();
+                
+                // Cập nhật lại giao diện thực đơn nếu cần
+                GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this.parentPanel);
+                if(dashBoard != null && dashBoard.getPnlThucDon() != null) {
+                    dashBoard.getPnlThucDon().loadDataFromDatabase();
+                }
+            }
             this.dispose();
 
         } catch (Exception ex) {
@@ -259,4 +275,4 @@ public class ThemGiaBanDialog extends JDialog {
             try { if (con != null) con.close(); } catch (SQLException e) {}
         }
     }
-}
+}	

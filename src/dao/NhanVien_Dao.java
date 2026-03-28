@@ -14,12 +14,24 @@ public class NhanVien_Dao {
     public List<NhanVien> getAllNhanVien() {
         List<NhanVien> ds = new ArrayList<>();
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            String sql = "SELECT maNV, hoTen, gmail, chucVu, luong, matKhau, gioiTinh FROM NhanVien";
+            // CẬP NHẬT: Thêm cột trangThai vào câu lệnh SELECT
+            String sql = "SELECT maNV, hoTen, gmail, chucVu, luong, matKhau, gioiTinh, trangThai FROM NhanVien";
             Statement stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
-                ds.add(new NhanVien(rs.getString(1), rs.getString(2), rs.getString(3), 
-                                   rs.getString(4), rs.getDouble(5), rs.getString(6), rs.getString(7)));
+                NhanVien nv = new NhanVien(
+                    rs.getString(1), // maNV
+                    rs.getString(2), // hoTen
+                    rs.getString(3), // gmail
+                    rs.getString(4), // chucVu
+                    rs.getDouble(5), // luong
+                    rs.getString(6), // matKhau
+                    rs.getString(7)  // gioiTinh
+                );
+                // Gán thêm trạng thái cho đối tượng nhân viên
+                nv.setTrangThai(rs.getString(8));
+                
+                ds.add(nv);
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return ds;
@@ -27,7 +39,8 @@ public class NhanVien_Dao {
 
     public boolean insertNhanVien(NhanVien nv) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            String sql = "INSERT INTO NhanVien (maNV, hoTen, gmail, ngaySinh, gioiTinh, soCCCD, luong, matKhau, chucVu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // CẬP NHẬT: Thêm cột trangThai vào lệnh INSERT
+            String sql = "INSERT INTO NhanVien (maNV, hoTen, gmail, ngaySinh, gioiTinh, soCCCD, luong, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = con.prepareStatement(sql);
             stmt.setString(1, nv.getMaNV());
             stmt.setString(2, nv.getHoTen());
@@ -38,6 +51,11 @@ public class NhanVien_Dao {
             stmt.setDouble(7, 5000000.0);
             stmt.setString(8, nv.getMatKhau());
             stmt.setString(9, nv.getChucVu());
+            
+            // Mặc định khi thêm mới là "Đang làm"
+            String trangThai = (nv.getTrangThai() != null && !nv.getTrangThai().isEmpty()) ? nv.getTrangThai() : "Đang làm";
+            stmt.setString(10, trangThai);
+            
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             if (e.getErrorCode() == 2627) JOptionPane.showMessageDialog(null, "Mã " + nv.getMaNV() + " đã tồn tại!");
@@ -48,25 +66,30 @@ public class NhanVien_Dao {
 
     public boolean updateNhanVien(NhanVien nv) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            String sql = "UPDATE NhanVien SET hoTen = ?, gmail = ?, gioiTinh = ?, matKhau = ?, chucVu = ? WHERE maNV = ?";
+            // CẬP NHẬT: Thêm việc cập nhật trangThai
+            String sql = "UPDATE NhanVien SET hoTen = ?, gmail = ?, gioiTinh = ?, matKhau = ?, chucVu = ?, trangThai = ? WHERE maNV = ?";
             PreparedStatement stmt = con.prepareStatement(sql);
             stmt.setString(1, nv.getHoTen());
             stmt.setString(2, nv.getGmail());
             stmt.setString(3, nv.getGioiTinh());
             stmt.setString(4, nv.getMatKhau());
             stmt.setString(5, nv.getChucVu());
-            stmt.setString(6, nv.getMaNV());
+            stmt.setString(6, nv.getTrangThai()); // Cập nhật trạng thái
+            stmt.setString(7, nv.getMaNV());
+            
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
+
+    // CẬP NHẬT QUAN TRỌNG: XÓA MỀM (Soft Delete)
     public boolean deleteNhanVien(String maNV) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            String sql = "DELETE FROM NhanVien WHERE maNV = ?";
+            // Thay vì DELETE, ta dùng UPDATE để đổi trạng thái thành "Nghỉ việc"
+            String sql = "UPDATE NhanVien SET trangThai = N'Nghỉ việc' WHERE maNV = ?";
             PreparedStatement stmt = con.prepareStatement(sql);
             stmt.setString(1, maNV);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            // Nếu vướng khóa ngoại (nhân viên đã lập hóa đơn), SQL sẽ báo lỗi
             e.printStackTrace();
             return false;
         }
