@@ -6,15 +6,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
 public class taiKhoanDao {
-    // Nhớ điều chỉnh lại tên database, user, pass cho đúng với máy của bạn nếu cần
     private String url = "jdbc:sqlserver://localhost:1433;databaseName=TuanTruongDB;encrypt=false";
     private String dbUser = "sa"; 
     private String dbPass = "sapassword"; 
 
     public boolean kiemTraDangNhap(String user, String pass) {
         try (Connection con = DriverManager.getConnection(url, dbUser, dbPass)) {
-            // Lệnh SQL lọc sơ bộ
-            String sql = "SELECT maNV, matKhau FROM NhanVien WHERE maNV = ? AND matKhau = ? AND chucVu = 'QUANLY' AND trangThai = N'Đang làm'";
+            // ĐÃ CẬP NHẬT: chucVu = N'Quản lý' để khớp chính xác với lệnh SQL của bạn
+            String sql = "SELECT maNV, matKhau FROM NhanVien WHERE maNV = ? AND matKhau = ? AND chucVu = N'Quản lý' AND trangThai = N'Đang làm'";
             
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, user);
@@ -22,21 +21,20 @@ public class taiKhoanDao {
             
             ResultSet rs = pst.executeQuery();
             
-            // Nếu có kết quả trả về từ SQL, ta bắt đầu dùng Java để kiểm tra hoa/thường
             if (rs.next()) {
-                String dbMaNV = rs.getString("maNV");
-                String dbMatKhau = rs.getString("matKhau");
+                // Dùng .trim() để cắt sạch mọi khoảng trắng thừa (rất hay gặp nếu DB dùng kiểu CHAR)
+                String dbMaNV = rs.getString("maNV").trim();
+                String dbMatKhau = rs.getString("matKhau").trim();
                 
-                // Hàm .equals() của Java sẽ bắt buộc chính xác 100% từng ký tự hoa/thường
+                // Kiểm tra chính xác chữ hoa/chữ thường trong Java
                 if (user.equals(dbMaNV) && pass.equals(dbMatKhau)) {
-                    return true; // Hoàn toàn trùng khớp
+                    return true; 
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         
-        // Trả về false nếu sai tài khoản, sai mật khẩu, sai chữ hoa/thường
         return false; 
     }
 }

@@ -13,31 +13,34 @@ import java.util.List;
 
 public class DialogThemNV extends JDialog {
     private JTextField txtMa, txtTen, txtGmail, txtPass;
-    private JComboBox<String> cbGioiTinh, cbChucVu;
+    private JComboBox<String> cbGioiTinh, cbChucVu, cbTrangThai;
     private JButton btnConfirm;
     private JLabel lblError;
     private NhanVien nvResult = null;
+    private NhanVien_Dao nv_dao = new NhanVien_Dao();
 
     private final Color PRIMARY_BLUE = new Color(54, 92, 245);
     private final Color DISABLED_GRAY = new Color(220, 220, 220);
 
-    public DialogThemNV(Frame parent, NhanVien oldNv) {
+    public DialogThemNV(Frame parent, NhanVien oldNv, String currentStatus) {
         super(parent, true);
         setTitle(oldNv == null ? "Thêm nhân viên mới" : "Sửa thông tin nhân viên");
-        setSize(450, 580); 
+        
+        setSize(450, oldNv == null ? 580 : 620); 
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(Color.WHITE);
 
         // --- 1. FORM NHẬP LIỆU ---
-        JPanel pnlForm = new JPanel(new GridLayout(6, 2, 10, 25));
+        int rowCount = (oldNv == null) ? 6 : 7;
+        JPanel pnlForm = new JPanel(new GridLayout(rowCount, 2, 10, 20));
         pnlForm.setBorder(new EmptyBorder(30, 40, 10, 40));
         pnlForm.setBackground(Color.WHITE);
 
         pnlForm.add(new JLabel("Mã nhân viên:"));
         txtMa = new JTextField(); 
-        txtMa.setEditable(false); // Khóa ô nhập mã
-        txtMa.setBackground(new Color(245, 245, 245)); // Tô màu xám nhạt
+        txtMa.setEditable(false);
+        txtMa.setBackground(new Color(240, 240, 240)); 
         txtMa.setFont(new Font("Segoe UI", Font.BOLD, 14));
         pnlForm.add(txtMa);
         
@@ -54,12 +57,20 @@ public class DialogThemNV extends JDialog {
         cbGioiTinh = new JComboBox<>(new String[]{"Nam", "Nữ"}); pnlForm.add(cbGioiTinh);
         
         pnlForm.add(new JLabel("Chức vụ:"));
-        cbChucVu = new JComboBox<>(new String[]{"NHANVIENBEP", "NHANVIENTHUNGAN", "NHANVIENPHUCVU"});
+        // Đã cập nhật tiếng Việt có dấu
+        cbChucVu = new JComboBox<>(new String[]{"Nhân viên bếp", "Nhân viên thu ngân", "Nhân viên phục vụ"});
         pnlForm.add(cbChucVu);
+
+        // CHỈ HIỂN THỊ CỘT TRẠNG THÁI KHI ĐANG SỬA
+        if (oldNv != null) {
+            pnlForm.add(new JLabel("Trạng thái:"));
+            cbTrangThai = new JComboBox<>(new String[]{"Đang làm", "Nghỉ việc"});
+            pnlForm.add(cbTrangThai);
+        }
 
         add(pnlForm, BorderLayout.CENTER);
 
-        // --- 2. PHẦN DƯỚI: THÔNG BÁO LỖI & 2 NÚT (HỦY - LƯU) ---
+        // --- 2. PHẦN DƯỚI: THÔNG BÁO LỖI & 2 NÚT ---
         JPanel pnlBottom = new JPanel(new BorderLayout());
         pnlBottom.setBackground(Color.WHITE);
         pnlBottom.setBorder(new EmptyBorder(0, 40, 20, 40));
@@ -71,7 +82,6 @@ public class DialogThemNV extends JDialog {
         lblError.setBorder(new EmptyBorder(0, 0, 10, 0));
         pnlBottom.add(lblError, BorderLayout.NORTH);
 
-        // Panel chứa 2 nút nằm ngang
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         btnPanel.setBackground(Color.WHITE);
 
@@ -89,23 +99,21 @@ public class DialogThemNV extends JDialog {
         pnlBottom.add(btnPanel, BorderLayout.CENTER);
         add(pnlBottom, BorderLayout.SOUTH);
 
-        // --- ĐỔ DỮ LIỆU HOẶC TỰ ĐỘNG SINH MÃ ---
+        // --- ĐỔ DỮ LIỆU ---
         if (oldNv != null) {
-            // Chế độ Sửa: Đổ dữ liệu cũ lên
             txtMa.setText(oldNv.getMaNV());
             txtTen.setText(oldNv.getHoTen());
             txtGmail.setText(oldNv.getGmail());
             txtPass.setText(oldNv.getMatKhau());
             cbGioiTinh.setSelectedItem(oldNv.getGioiTinh());
             cbChucVu.setSelectedItem(oldNv.getChucVu());
+            cbTrangThai.setSelectedItem(currentStatus); 
         } else {
-            // Chế độ Thêm: Tự động sinh mã nhân viên mới
             txtMa.setText(generateNewMaNV());
         }
 
         // --- 3. BẮT SỰ KIỆN LỖI ---
         SimpleListener dl = new SimpleListener(this::checkSaveButton);
-        // Bỏ theo dõi txtMa vì nó đã bị khóa tự động sinh
         txtTen.getDocument().addDocumentListener(dl);
         txtGmail.getDocument().addDocumentListener(dl);
         txtPass.getDocument().addDocumentListener(dl);
@@ -116,6 +124,8 @@ public class DialogThemNV extends JDialog {
 
         btnConfirm.addActionListener(e -> {
             if (validData(true)) {
+                String finalStatus = (oldNv == null) ? "Đang làm" : cbTrangThai.getSelectedItem().toString();
+
                 nvResult = new NhanVien(
                     txtMa.getText().trim(),
                     txtTen.getText().trim(),
@@ -123,7 +133,8 @@ public class DialogThemNV extends JDialog {
                     cbChucVu.getSelectedItem().toString(),
                     5000000.0,
                     txtPass.getText().trim(),
-                    cbGioiTinh.getSelectedItem().toString()
+                    cbGioiTinh.getSelectedItem().toString(),
+                    finalStatus 
                 );
                 setVisible(false);
             }
@@ -132,28 +143,23 @@ public class DialogThemNV extends JDialog {
         checkSaveButton();
     }
 
-    // --- HÀM TỰ ĐỘNG SINH MÃ NHÂN VIÊN KẾ TIẾP ---
     private String generateNewMaNV() {
-        NhanVien_Dao dao = new NhanVien_Dao();
-        List<NhanVien> dsNhanVien = dao.getAllNhanVien();
+        List<NhanVien> dsNhanVien = nv_dao.getAllNhanVien();
         
         int maxId = 0;
         for (NhanVien nv : dsNhanVien) {
             String ma = nv.getMaNV();
             if (ma != null && ma.startsWith("NV")) {
                 try {
-                    // Cắt bỏ chữ "NV" và chuyển phần số thành Integer
                     int currentId = Integer.parseInt(ma.substring(2));
                     if (currentId > maxId) {
                         maxId = currentId;
                     }
                 } catch (NumberFormatException e) {
-                    // Bỏ qua nếu có nhân viên mã không đúng chuẩn NV + số
                 }
             }
         }
         
-        // Tăng maxId lên 1 và format về chuỗi có 3 chữ số (VD: NV007)
         return String.format("NV%03d", maxId + 1);
     }
 
