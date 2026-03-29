@@ -25,6 +25,10 @@ public class NhanVienPanel extends JPanel {
     private JTable table;
     private NhanVien_Dao nv_dao = new NhanVien_Dao();
     private JTextField txtSearch;
+    
+    // Biến để theo dõi trạng thái đang hiển thị
+    private boolean isShowingNghiViec = false;
+    private JButton btnToggleView;
 
     public NhanVienPanel() {
         setLayout(new BorderLayout(0, 20));
@@ -35,15 +39,33 @@ public class NhanVienPanel extends JPanel {
         loadDataFromDatabase();
     }
 
+    /**
+     * Load dữ liệu có lọc theo trạng thái
+     */
     private void loadDataFromDatabase() {
         model.setRowCount(0);
         List<NhanVien> list = nv_dao.getAllNhanVien();
+        
+        String filterStatus = isShowingNghiViec ? "Nghỉ việc" : "Đang làm";
+        
         for (NhanVien nv : list) {
             String trangThai = nv.getTrangThai();
             if (trangThai == null || trangThai.trim().isEmpty()) {
                 trangThai = "Đang làm";
             }
-            model.addRow(new Object[]{nv.getMaNV(), nv.getHoTen(), nv.getGmail(), nv.getMatKhau(), nv.getGioiTinh(), nv.getChucVu(), trangThai});
+            
+            // Chỉ thêm vào bảng nếu khớp với bộ lọc hiện tại
+            if (trangThai.equalsIgnoreCase(filterStatus)) {
+                model.addRow(new Object[]{
+                    nv.getMaNV(), 
+                    nv.getHoTen(), 
+                    nv.getGmail(), 
+                    nv.getMatKhau(), 
+                    nv.getGioiTinh(), 
+                    nv.getChucVu(), 
+                    trangThai
+                });
+            }
         }
     }
 
@@ -82,13 +104,28 @@ public class NhanVienPanel extends JPanel {
         btnActions.setOpaque(false);
 
         txtSearch = new JTextField(15);
-        txtSearch.setPreferredSize(new Dimension(250, 40));
+        txtSearch.setPreferredSize(new Dimension(200, 40));
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtSearch.putClientProperty("JTextField.placeholderText", "Tìm tên nhân viên...");
+        txtSearch.putClientProperty("JTextField.placeholderText", "Tìm tên...");
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { xuLyTimKiem(); }
             public void removeUpdate(DocumentEvent e) { xuLyTimKiem(); }
             public void changedUpdate(DocumentEvent e) { xuLyTimKiem(); }
+        });
+
+        // NÚT CHUYỂN ĐỔI CHẾ ĐỘ XEM
+        btnToggleView = new JButton("Xem NV nghỉ việc");
+        styleSecondaryBtn(btnToggleView);
+        btnToggleView.addActionListener(e -> {
+            isShowingNghiViec = !isShowingNghiViec;
+            if (isShowingNghiViec) {
+                btnToggleView.setText("Quay lại DS đang làm");
+                btnToggleView.setBackground(new Color(200, 200, 200));
+            } else {
+                btnToggleView.setText("Xem NV nghỉ việc");
+                btnToggleView.setBackground(BG_WHITE);
+            }
+            loadDataFromDatabase();
         });
 
         JButton btnAdd = new JButton("+ Thêm nhân viên");
@@ -102,7 +139,6 @@ public class NhanVienPanel extends JPanel {
         btnAdd.putClientProperty("JButton.arc", 15);
         
         btnAdd.addActionListener(e -> {
-            // GỌI SANG CLASS ĐỘC LẬP
             DialogThemNV dialog = new DialogThemNV((Frame) SwingUtilities.getWindowAncestor(this), null, "Đang làm");
             dialog.setVisible(true);
             if (dialog.getNewEmployee() != null && nv_dao.insertNhanVien(dialog.getNewEmployee())) {
@@ -111,6 +147,7 @@ public class NhanVienPanel extends JPanel {
         });
 
         btnActions.add(txtSearch);
+        btnActions.add(btnToggleView);
         btnActions.add(btnAdd);
         titleActionPanel.add(btnActions, BorderLayout.EAST);
 
@@ -142,7 +179,7 @@ public class NhanVienPanel extends JPanel {
         cr.setHorizontalAlignment(JLabel.CENTER);
         
         for (int i = 0; i < table.getColumnCount(); i++) {
-            if (i == 6) { // Cột Trạng thái (Đổi màu theo giá trị)
+            if (i == 6) { 
                 table.getColumnModel().getColumn(i).setCellRenderer(new DefaultTableCellRenderer() {
                     @Override
                     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -171,25 +208,28 @@ public class NhanVienPanel extends JPanel {
                     int r = table.getSelectedRow();
                     if (r != -1) {
                         try {
-                            Object valMa = model.getValueAt(r, 0);
-                            Object valTen = model.getValueAt(r, 1);
-                            Object valGmail = model.getValueAt(r, 2);
-                            Object valMk = model.getValueAt(r, 3);
-                            Object valGioi = model.getValueAt(r, 4);
-                            Object valChuc = model.getValueAt(r, 5);
-                            Object valTrangThai = model.getValueAt(r, 6);
+                            // Lấy chức vụ trước để kiểm tra
+                            String chuc = model.getValueAt(r, 5).toString();
+                            
+                            // CHỐT CHẶN: Nếu là Quản lý thì không cho phép sửa
+                            if (chuc.equalsIgnoreCase("Quản lý") || chuc.equalsIgnoreCase("QUANLY")) {
+                                JOptionPane.showMessageDialog(NhanVienPanel.this, 
+                                    "Không thể chỉnh sửa thông tin của Quản lý", 
+                                    "Từ chối quyền truy cập", 
+                                    JOptionPane.WARNING_MESSAGE);
+                                return; // Lập tức dừng lại, không mở form nữa
+                            }
 
-                            String ma = valMa != null ? valMa.toString() : "";
-                            String ten = valTen != null ? valTen.toString() : "";
-                            String gmail = valGmail != null ? valGmail.toString() : "";
-                            String mk = valMk != null ? valMk.toString() : "";
-                            String gioi = valGioi != null ? valGioi.toString() : "";
-                            String chuc = valChuc != null ? valChuc.toString() : "";
-                            String trangThai = valTrangThai != null ? valTrangThai.toString() : "Đang làm"; 
+                            // Nếu không phải quản lý thì lấy các dữ liệu còn lại và mở form bình thường
+                            String ma = model.getValueAt(r, 0).toString();
+                            String ten = model.getValueAt(r, 1).toString();
+                            String gmail = model.getValueAt(r, 2).toString();
+                            String mk = model.getValueAt(r, 3).toString();
+                            String gioi = model.getValueAt(r, 4).toString();
+                            String trangThai = model.getValueAt(r, 6).toString();
 
                             NhanVien nv = new NhanVien(ma, ten, gmail, chuc, 5000000.0, mk, gioi, trangThai);
                             
-                            // GỌI SANG CLASS ĐỘC LẬP KHI SỬA
                             DialogThemNV d = new DialogThemNV((Frame) SwingUtilities.getWindowAncestor(NhanVienPanel.this), nv, trangThai);
                             d.setVisible(true);
                             if (d.getNewEmployee() != null && nv_dao.updateNhanVien(d.getNewEmployee())) {
@@ -208,16 +248,33 @@ public class NhanVienPanel extends JPanel {
         add(sp, BorderLayout.CENTER);
     }
 
+    private void styleSecondaryBtn(JButton btn) {
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setPreferredSize(new Dimension(180, 42));
+        btn.setBackground(BG_WHITE);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.putClientProperty("JButton.buttonType", "roundRect");
+        btn.putClientProperty("JButton.arc", 15);
+    }
+
     private void xuLyTimKiem() {
         String k = txtSearch.getText().trim().toLowerCase();
         model.setRowCount(0);
+        String filterStatus = isShowingNghiViec ? "Nghỉ việc" : "Đang làm";
+        
         for (NhanVien nv : nv_dao.getAllNhanVien()) {
-            if (nv.getHoTen().toLowerCase().contains(k)) {
-                String trangThai = nv.getTrangThai();
-                if (trangThai == null || trangThai.trim().isEmpty()) {
-                    trangThai = "Đang làm";
-                }
-                model.addRow(new Object[]{nv.getMaNV(), nv.getHoTen(), nv.getGmail(), nv.getMatKhau(), nv.getGioiTinh(), nv.getChucVu(), trangThai});
+            String trangThai = nv.getTrangThai() != null ? nv.getTrangThai() : "Đang làm";
+            
+            if (trangThai.equalsIgnoreCase(filterStatus) && nv.getHoTen().toLowerCase().contains(k)) {
+                model.addRow(new Object[]{
+                    nv.getMaNV(), 
+                    nv.getHoTen(), 
+                    nv.getGmail(), 
+                    nv.getMatKhau(), 
+                    nv.getGioiTinh(), 
+                    nv.getChucVu(), 
+                    trangThai
+                });
             }
         }
     }

@@ -18,7 +18,6 @@ import java.util.Locale;
 
 public class ThucDonPanel extends JPanel {
 
-    // --- HỆ MÀU CHUẨN GIAO DIỆN ---
     private final Color BG_COLOR = new Color(250, 248, 248);
     private final Color TIME_BANNER_BG = new Color(253, 242, 242); 
     private final Color RED_ACCENT = new Color(255, 102, 102); 
@@ -31,7 +30,7 @@ public class ThucDonPanel extends JPanel {
     private List<MonAn> allFoods = new ArrayList<>(); 
     private List<JButton> categoryButtons = new ArrayList<>();
     private JTextField txtSearch;
-    private JComboBox<String> cbPriceFilter; // Thêm biến Combobox lọc giá
+    private JComboBox<String> cbPriceFilter; 
     
     private MonAn_DAO monAn_dao = new MonAn_DAO();
 
@@ -103,12 +102,10 @@ public class ThucDonPanel extends JPanel {
             btnCat.setFont(new Font("Segoe UI", Font.BOLD, 13));
             btnCat.setCursor(new Cursor(Cursor.HAND_CURSOR));
             btnCat.setFocusPainted(false);
-            
             btnCat.putClientProperty("JButton.buttonType", "roundRect");
             btnCat.putClientProperty("JButton.arc", 15);
             
             updateButtonStyle(btnCat, cat.equals("Tất cả"));
-            
             btnCat.addActionListener(e -> {
                 updateCategoryButtons(btnCat);
                 thucHienLocVaTimKiem();
@@ -117,13 +114,13 @@ public class ThucDonPanel extends JPanel {
             filterGroup.add(btnCat);
         }
 
-        // --- MỚI: THÊM COMBOBOX LỌC GIÁ KẾ BÊN NÚT TRÁNG MIỆNG ---
-        filterGroup.add(Box.createRigidArea(new Dimension(5, 0))); // Khoảng cách nhỏ
-        cbPriceFilter = new JComboBox<>(new String[]{"Tất cả giá", "Đã thiết lập", "Chờ thiết lập"});
+        // --- CẬP NHẬT: Thêm "Tạm ngưng" vào bộ lọc ---
+        filterGroup.add(Box.createRigidArea(new Dimension(5, 0))); 
+        cbPriceFilter = new JComboBox<>(new String[]{"Tất cả giá", "Đã thiết lập", "Chờ thiết lập", "Tạm ngưng"});
         cbPriceFilter.setPreferredSize(new Dimension(140, 38));
         cbPriceFilter.setFont(new Font("Segoe UI", Font.BOLD, 13));
         cbPriceFilter.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        cbPriceFilter.addActionListener(e -> thucHienLocVaTimKiem()); // Khi chọn thì tự động lọc
+        cbPriceFilter.addActionListener(e -> thucHienLocVaTimKiem());
         filterGroup.add(cbPriceFilter);
 
         JPanel searchGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
@@ -131,8 +128,6 @@ public class ThucDonPanel extends JPanel {
         txtSearch = new JTextField(15);
         txtSearch.setPreferredSize(new Dimension(220, 40));
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        
-        // --- ĐÃ SỬA: Xóa icon kính lúp để tránh lỗi ô vuông ---
         txtSearch.putClientProperty("JTextField.placeholderText", "Tìm tên món...");
         
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
@@ -149,7 +144,6 @@ public class ThucDonPanel extends JPanel {
         topWrapper.add(Box.createRigidArea(new Dimension(0, 15)));
         add(topWrapper, BorderLayout.NORTH);
 
-        // --- CENTER: LƯỚI DANH SÁCH MÓN ---
         productGrid = new JPanel(new GridLayout(0, 3, 25, 25)); 
         productGrid.setOpaque(false);
         
@@ -170,11 +164,8 @@ public class ThucDonPanel extends JPanel {
         thucHienLocVaTimKiem();
     }
 
-    // --- CẬP NHẬT LOGIC LỌC ĐỂ KẾT HỢP CẢ LOẠI MÓN, TÌM KIẾM VÀ TRẠNG THÁI GIÁ ---
     private void thucHienLocVaTimKiem() {
         String keyword = txtSearch.getText().trim().toLowerCase();
-        
-        // Lấy loại món đang được chọn
         String selectedCat = "Tất cả";
         for (JButton btn : categoryButtons) {
             if (btn.getBackground().equals(RED_ACCENT)) {
@@ -182,8 +173,6 @@ public class ThucDonPanel extends JPanel {
                 break;
             }
         }
-
-        // Lấy trạng thái giá đang được chọn
         String priceStatus = cbPriceFilter.getSelectedItem().toString();
 
         productGrid.removeAll(); 
@@ -191,15 +180,21 @@ public class ThucDonPanel extends JPanel {
             boolean matchesKey = food.getTenMon().toLowerCase().contains(keyword);
             boolean matchesCat = selectedCat.equals("Tất cả") || (food.getLoaiMon() != null && food.getLoaiMon().equalsIgnoreCase(selectedCat));
             
-            // Xử lý bộ lọc giá
+            // --- CẬP NHẬT LOGIC LỌC GIÁ & TRẠNG THÁI ---
+            boolean isTamNgung = (food.getTrangThai() != null && food.getTrangThai().equalsIgnoreCase("Tạm ngưng"));
             boolean matchesPrice = true;
+            
             if (priceStatus.equals("Đã thiết lập")) {
-                matchesPrice = food.getGiaBan() > 0;
+                // Chỉ hiện món Đang bán VÀ có giá
+                matchesPrice = !isTamNgung && food.getGiaBan() > 0;
             } else if (priceStatus.equals("Chờ thiết lập")) {
-                matchesPrice = food.getGiaBan() <= 0;
+                // Chỉ hiện món Đang bán VÀ chưa có giá
+                matchesPrice = !isTamNgung && food.getGiaBan() <= 0;
+            } else if (priceStatus.equals("Tạm ngưng")) {
+                // Chỉ hiện món có trạng thái Tạm ngưng
+                matchesPrice = isTamNgung;
             }
 
-            // Nếu thỏa mãn cả 3 điều kiện (Tên + Loại + Giá) thì mới hiển thị
             if (matchesKey && matchesCat && matchesPrice) {
                 productGrid.add(createFoodCard(food));
             }
@@ -210,8 +205,25 @@ public class ThucDonPanel extends JPanel {
 
     private JPanel createFoodCard(MonAn food) {
         double gia = food.getGiaBan(); 
-        boolean isDimmed = (gia <= 0); 
-        String giaStr = (gia > 0) ? String.format("%,.0f VNĐ", gia) : "Chờ thiết lập";
+        String trangThaiMon = food.getTrangThai(); 
+        
+        boolean isTamNgung = (trangThaiMon != null && trangThaiMon.equalsIgnoreCase("Tạm ngưng"));
+        boolean isChoThietLap = (gia <= 0 && !isTamNgung);
+        boolean isDimmed = isChoThietLap || isTamNgung; 
+
+        String textHienThi;
+        Color colorHienThi;
+        
+        if (isTamNgung) {
+            textHienThi = "Tạm ngưng";
+            colorHienThi = new Color(200, 0, 0); 
+        } else if (isChoThietLap) {
+            textHienThi = "Chờ thiết lập";
+            colorHienThi = DIM_TEXT;
+        } else {
+            textHienThi = String.format("%,.0f VNĐ", gia);
+            colorHienThi = new Color(220, 50, 50);
+        }
 
         JPanel card = new JPanel() {
             @Override
@@ -239,7 +251,7 @@ public class ThucDonPanel extends JPanel {
             }
             @Override
             public void mouseEntered(MouseEvent e) {
-                if (!isDimmed) card.setBorder(BorderFactory.createLineBorder(RED_ACCENT, 1));
+                if (!isTamNgung) card.setBorder(BorderFactory.createLineBorder(RED_ACCENT, 1));
             }
             @Override
             public void mouseExited(MouseEvent e) {
@@ -247,7 +259,7 @@ public class ThucDonPanel extends JPanel {
             }
         };
         card.addMouseListener(cardAdapter);
-        if (!isDimmed) card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         JPanel textPanel = new JPanel();
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS)); 
@@ -256,15 +268,15 @@ public class ThucDonPanel extends JPanel {
 
         JLabel lblName = new JLabel("<html><div style='width:125px;'>" + food.getTenMon() + "</div></html>");
         lblName.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        lblName.setForeground(isDimmed ? DIM_TEXT : TEXT_DARK);
+        lblName.setForeground(isTamNgung ? new Color(100, 100, 100) : TEXT_DARK);
         
         JLabel lblCat = new JLabel("Loại: " + (food.getLoaiMon() != null ? food.getLoaiMon() : "N/A"));
         lblCat.setFont(new Font("Segoe UI", Font.ITALIC, 13));
         lblCat.setForeground(isDimmed ? DIM_TEXT : new Color(120, 120, 120));
 
-        JLabel lblPrice = new JLabel(giaStr);
+        JLabel lblPrice = new JLabel(textHienThi);
         lblPrice.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblPrice.setForeground(isDimmed ? DIM_TEXT : new Color(220, 50, 50)); 
+        lblPrice.setForeground(colorHienThi);
 
         textPanel.add(lblName);
         textPanel.add(Box.createVerticalStrut(6));

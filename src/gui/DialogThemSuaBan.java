@@ -8,12 +8,12 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 
 public class DialogThemSuaBan extends JDialog {
 
-    private Ban banHienTai; // Biến lưu trữ bàn đang xử lý
+    private Ban banHienTai; 
     private BanDAO banDAO;
     private boolean isThanhCong = false; 
 
@@ -29,16 +29,20 @@ public class DialogThemSuaBan extends JDialog {
     private JButton btnLuu;
     private JButton btnHuy;
 
-    // Constructor nhận vào ban (nếu null là Thêm mới, nếu có data là Cập nhật)
     public DialogThemSuaBan(Frame parent, Ban ban) {
         super(parent, ban == null ? "Thêm Bàn Mới" : "Cập Nhật Thông Tin Bàn", true);
-        this.banHienTai = ban; // Gán bàn truyền vào cho biến banHienTai
+        this.banHienTai = ban; 
         this.banDAO = new BanDAO();
 
         initUI();
-        setupListeners();
+        
+        // ĐẢO THỨ TỰ: Đổ dữ liệu trước rồi mới cài đặt Listener
+        // Tránh việc hàm set text tự động kích hoạt lỗi
         loadData();
-        validateRealTime(); 
+        setupListeners();
+        
+        // Lần đầu chạy form -> set false để KHÔNG hiện chữ đỏ
+        validateRealTime(false); 
     }
 
     private void initUI() {
@@ -134,7 +138,7 @@ public class DialogThemSuaBan extends JDialog {
 
         add(pnlForm, BorderLayout.CENTER);
 
-        // PANEL NÚT BẤM - ĐÃ SỬA CHỖ NÀY CHO ANH ĐÂY
+        // PANEL NÚT BẤM
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
         pnlButtons.setBackground(Color.WHITE);
 
@@ -142,7 +146,6 @@ public class DialogThemSuaBan extends JDialog {
         btnHuy.setFont(fontLabel);
         btnHuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Logic đổi chữ: Nếu banHienTai trống thì là Thêm, ngược lại là Cập nhật
         String textNutLuu = (banHienTai == null) ? "Thêm Bàn" : "Cập Nhật";
         btnLuu = new JButton(textNutLuu);
         
@@ -171,25 +174,41 @@ public class DialogThemSuaBan extends JDialog {
     }
 
     private void setupListeners() {
+        // DocumentListener: Lắng nghe khi người dùng gõ phím
         DocumentListener docListener = new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { validateRealTime(); }
-            @Override public void removeUpdate(DocumentEvent e) { validateRealTime(); }
-            @Override public void changedUpdate(DocumentEvent e) { validateRealTime(); }
+            @Override public void insertUpdate(DocumentEvent e) { validateRealTime(true); }
+            @Override public void removeUpdate(DocumentEvent e) { validateRealTime(true); }
+            @Override public void changedUpdate(DocumentEvent e) { validateRealTime(true); }
         };
 
         txtTenBan.getDocument().addDocumentListener(docListener);
         txtSoGhe.getDocument().addDocumentListener(docListener);
 
-        btnHuy.addActionListener(e -> dispose());
+        // FocusListener: Lắng nghe khi người dùng click vào ô rồi click ra chỗ khác
+        txtTenBan.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                validateRealTime(true);
+            }
+        });
 
+        txtSoGhe.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                validateRealTime(true);
+            }
+        });
+
+        btnHuy.addActionListener(e -> dispose());
         btnLuu.addActionListener(e -> luuDuLieu());
     }
 
-    private void validateRealTime() {
+    // CẬP NHẬT: Thêm biến showError để quyết định có hiện chữ đỏ hay không
+    private void validateRealTime(boolean showError) {
         boolean hopLe = true;
 
         if (txtTenBan.getText().trim().isEmpty()) {
-            lblErrTenBan.setText("Tên bàn không được để rỗng");
+            if (showError) lblErrTenBan.setText("Tên bàn không được để rỗng");
             hopLe = false;
         } else {
             lblErrTenBan.setText(" "); 
@@ -197,24 +216,24 @@ public class DialogThemSuaBan extends JDialog {
 
         String strSoGhe = txtSoGhe.getText().trim();
         if (strSoGhe.isEmpty()) {
-            lblErrSoGhe.setText("Vui lòng nhập số ghế");
+            if (showError) lblErrSoGhe.setText("Vui lòng nhập số ghế");
             hopLe = false;
         } else {
             try {
                 int soGhe = Integer.parseInt(strSoGhe);
-                if (soGhe <= 0) {
-                    lblErrSoGhe.setText("Số ghế phải lớn hơn 0");
+                if (soGhe != 2 && soGhe != 4 && soGhe != 6 && soGhe != 8 && soGhe != 10) {
+                    if (showError) lblErrSoGhe.setText("Số ghế chỉ được là 2, 4, 6, 8, hoặc 10");
                     hopLe = false;
                 } else {
                     lblErrSoGhe.setText(" "); 
                 }
             } catch (NumberFormatException ex) {
-                lblErrSoGhe.setText("Số ghế chỉ được nhập chữ số");
+                if (showError) lblErrSoGhe.setText("Số ghế chỉ được nhập chữ số");
                 hopLe = false;
             }
         }
 
-        btnLuu.setEnabled(hopLe);
+        btnLuu.setEnabled(hopLe); // Vẫn khóa nút Lưu như bình thường
     }
 
     private void luuDuLieu() {
