@@ -37,7 +37,6 @@ public class DialogThemSuaBan extends JDialog {
         initUI();
         
         // ĐẢO THỨ TỰ: Đổ dữ liệu trước rồi mới cài đặt Listener
-        // Tránh việc hàm set text tự động kích hoạt lỗi
         loadData();
         setupListeners();
         
@@ -110,18 +109,21 @@ public class DialogThemSuaBan extends JDialog {
         lblErrSoGhe.setForeground(colorErr);
         pnlForm.add(lblErrSoGhe, gbc);
 
-        // 4. Trạng Thái
-        gbc.gridx = 0; gbc.gridy = 5; gbc.weightx = 0;
+        // 4. Trạng Thái - CHỈ HIỂN THỊ KHI ĐANG CẬP NHẬT BÀN (SỬA)
         JLabel lblTrangThai = new JLabel("Trạng thái:");
         lblTrangThai.setFont(fontLabel);
-        pnlForm.add(lblTrangThai, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 5; gbc.weightx = 1.0;
         String[] arrTrangThai = {"Trống", "Đang sử dụng", "Đã đặt trước"};
         cbTrangThai = new JComboBox<>(arrTrangThai);
         cbTrangThai.setFont(fontInput);
         cbTrangThai.setBackground(Color.WHITE);
-        pnlForm.add(cbTrangThai, gbc);
+
+        if (banHienTai != null) {
+            gbc.gridx = 0; gbc.gridy = 5; gbc.weightx = 0;
+            pnlForm.add(lblTrangThai, gbc);
+
+            gbc.gridx = 1; gbc.gridy = 5; gbc.weightx = 1.0;
+            pnlForm.add(cbTrangThai, gbc);
+        }
 
         // 5. Vị Trí
         gbc.gridx = 0; gbc.gridy = 7; gbc.weightx = 0;
@@ -203,7 +205,6 @@ public class DialogThemSuaBan extends JDialog {
         btnLuu.addActionListener(e -> luuDuLieu());
     }
 
-    // CẬP NHẬT: Thêm biến showError để quyết định có hiện chữ đỏ hay không
     private void validateRealTime(boolean showError) {
         boolean hopLe = true;
 
@@ -241,7 +242,9 @@ public class DialogThemSuaBan extends JDialog {
             String maBan = txtMaBan.getText().trim();
             String tenBan = txtTenBan.getText().trim();
             int soGhe = Integer.parseInt(txtSoGhe.getText().trim());
-            String trangThai = cbTrangThai.getSelectedItem().toString();
+            
+            // CẬP NHẬT: Nếu là thêm mới -> Ép mặc định là "Trống". Nếu sửa -> Lấy từ ComboBox
+            String trangThai = (banHienTai == null) ? "Trống" : cbTrangThai.getSelectedItem().toString();
             String viTri = cbViTri.getSelectedItem().toString();
 
             Ban banMoi = new Ban(maBan, tenBan, soGhe, trangThai, viTri);

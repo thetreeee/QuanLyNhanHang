@@ -30,6 +30,9 @@ public class NhanVienPanel extends JPanel {
     private boolean isShowingNghiViec = false;
     private JButton btnToggleView;
 
+    // Danh sách lưu tạm để lấy Gmail khi click đúp
+    private List<NhanVien> currentList;
+
     public NhanVienPanel() {
         setLayout(new BorderLayout(0, 20));
         setBackground(BG_WHITE);
@@ -44,22 +47,21 @@ public class NhanVienPanel extends JPanel {
      */
     private void loadDataFromDatabase() {
         model.setRowCount(0);
-        List<NhanVien> list = nv_dao.getAllNhanVien();
+        currentList = nv_dao.getAllNhanVien(); 
         
         String filterStatus = isShowingNghiViec ? "Nghỉ việc" : "Đang làm";
         
-        for (NhanVien nv : list) {
+        for (NhanVien nv : currentList) {
             String trangThai = nv.getTrangThai();
             if (trangThai == null || trangThai.trim().isEmpty()) {
                 trangThai = "Đang làm";
             }
             
-            // Chỉ thêm vào bảng nếu khớp với bộ lọc hiện tại
             if (trangThai.equalsIgnoreCase(filterStatus)) {
                 model.addRow(new Object[]{
                     nv.getMaNV(), 
                     nv.getHoTen(), 
-                    nv.getGmail(), 
+                    nv.getSoDienThoai(), 
                     nv.getMatKhau(), 
                     nv.getGioiTinh(), 
                     nv.getChucVu(), 
@@ -155,7 +157,7 @@ public class NhanVienPanel extends JPanel {
         add(topWrapper, BorderLayout.NORTH);
 
         // --- 3. CENTER (BẢNG DANH SÁCH) ---
-        String[] columns = {"Mã nhân viên", "Tên nhân viên", "Gmail", "Mật khẩu", "Giới tính", "Chức vụ", "Trạng thái"};
+        String[] columns = {"Mã nhân viên", "Tên nhân viên", "Số điện thoại", "Mật khẩu", "Giới tính", "Chức vụ", "Trạng thái"};
         model = new DefaultTableModel(null, columns) { 
             @Override public boolean isCellEditable(int r, int c) { return false; } 
         };
@@ -208,34 +210,58 @@ public class NhanVienPanel extends JPanel {
                     int r = table.getSelectedRow();
                     if (r != -1) {
                         try {
-                            // Lấy chức vụ trước để kiểm tra
-                            String chuc = model.getValueAt(r, 5).toString();
+                            // CẬP NHẬT: Kiểm tra Null an toàn tuyệt đối
+                            Object valChuc = model.getValueAt(r, 5);
+                            String chuc = valChuc != null ? valChuc.toString() : "";
                             
-                            // CHỐT CHẶN: Nếu là Quản lý thì không cho phép sửa
                             if (chuc.equalsIgnoreCase("Quản lý") || chuc.equalsIgnoreCase("QUANLY")) {
                                 JOptionPane.showMessageDialog(NhanVienPanel.this, 
                                     "Không thể chỉnh sửa thông tin của Quản lý", 
                                     "Từ chối quyền truy cập", 
                                     JOptionPane.WARNING_MESSAGE);
-                                return; // Lập tức dừng lại, không mở form nữa
+                                return;
                             }
 
-                            // Nếu không phải quản lý thì lấy các dữ liệu còn lại và mở form bình thường
-                            String ma = model.getValueAt(r, 0).toString();
-                            String ten = model.getValueAt(r, 1).toString();
-                            String gmail = model.getValueAt(r, 2).toString();
-                            String mk = model.getValueAt(r, 3).toString();
-                            String gioi = model.getValueAt(r, 4).toString();
-                            String trangThai = model.getValueAt(r, 6).toString();
+                            Object valMa = model.getValueAt(r, 0);
+                            String ma = valMa != null ? valMa.toString() : "";
+                            
+                            Object valTen = model.getValueAt(r, 1);
+                            String ten = valTen != null ? valTen.toString() : "";
+                            
+                            Object valSDT = model.getValueAt(r, 2);
+                            String sdt = valSDT != null ? valSDT.toString() : ""; 
+                            
+                            Object valMk = model.getValueAt(r, 3);
+                            String mk = valMk != null ? valMk.toString() : "";
+                            
+                            Object valGioi = model.getValueAt(r, 4);
+                            String gioi = valGioi != null ? valGioi.toString() : "";
+                            
+                            Object valTrangThai = model.getValueAt(r, 6);
+                            String trangThai = valTrangThai != null ? valTrangThai.toString() : "Đang làm";
+                            
+                            // Tìm Gmail từ danh sách gốc an toàn
+                            String gmail = "";
+                            if (currentList != null) {
+                                for (NhanVien nvItem : currentList) {
+                                    if (nvItem.getMaNV() != null && nvItem.getMaNV().equals(ma)) {
+                                        gmail = nvItem.getGmail() != null ? nvItem.getGmail() : "";
+                                        break;
+                                    }
+                                }
+                            }
 
-                            NhanVien nv = new NhanVien(ma, ten, gmail, chuc, 5000000.0, mk, gioi, trangThai);
+                            NhanVien nv = new NhanVien(ma, ten, sdt, gmail, chuc, 5000000.0, mk, gioi, trangThai);
                             
                             DialogThemNV d = new DialogThemNV((Frame) SwingUtilities.getWindowAncestor(NhanVienPanel.this), nv, trangThai);
                             d.setVisible(true);
                             if (d.getNewEmployee() != null && nv_dao.updateNhanVien(d.getNewEmployee())) {
-                                loadDataFromDatabase();
+                                loadDataFromDatabase(); // Load lại bảng để nhân viên nhảy qua danh sách Đang Làm
                             }
-                        } catch (Exception ex) { ex.printStackTrace(); }
+                        } catch (Exception ex) { 
+                            ex.printStackTrace(); 
+                            JOptionPane.showMessageDialog(NhanVienPanel.this, "Có lỗi xảy ra khi đọc dữ liệu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        }
                     }
                 }
             }
@@ -262,19 +288,21 @@ public class NhanVienPanel extends JPanel {
         model.setRowCount(0);
         String filterStatus = isShowingNghiViec ? "Nghỉ việc" : "Đang làm";
         
-        for (NhanVien nv : nv_dao.getAllNhanVien()) {
-            String trangThai = nv.getTrangThai() != null ? nv.getTrangThai() : "Đang làm";
-            
-            if (trangThai.equalsIgnoreCase(filterStatus) && nv.getHoTen().toLowerCase().contains(k)) {
-                model.addRow(new Object[]{
-                    nv.getMaNV(), 
-                    nv.getHoTen(), 
-                    nv.getGmail(), 
-                    nv.getMatKhau(), 
-                    nv.getGioiTinh(), 
-                    nv.getChucVu(), 
-                    trangThai
-                });
+        if (currentList != null) {
+            for (NhanVien nv : currentList) {
+                String trangThai = nv.getTrangThai() != null ? nv.getTrangThai() : "Đang làm";
+                
+                if (trangThai.equalsIgnoreCase(filterStatus) && nv.getHoTen().toLowerCase().contains(k)) {
+                    model.addRow(new Object[]{
+                        nv.getMaNV(), 
+                        nv.getHoTen(), 
+                        nv.getSoDienThoai(),
+                        nv.getMatKhau(), 
+                        nv.getGioiTinh(), 
+                        nv.getChucVu(), 
+                        trangThai
+                    });
+                }
             }
         }
     }

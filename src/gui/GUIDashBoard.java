@@ -55,7 +55,7 @@ public class GUIDashBoard extends JFrame {
         addMenu(menuContainer, "Thực đơn", "icons/menu (1).png", "ThucDon"); 
         addMenu(menuContainer, "Bảng giá", "icons/list.png", "BangGia");
         addMenu(menuContainer, "Sơ đồ bàn", "icons/seating.png", "SoDoBan");
-        addMenu(menuContainer, "Khuyen mãi", "icons/promotion.png", "KhuyenMai");
+        addMenu(menuContainer, "Khuyến mãi", "icons/promotion.png", "KhuyenMai");
         addMenu(menuContainer, "Thống kê", "icons/analysis.png", "ThongKe");
 
         sidebar.add(menuContainer, BorderLayout.NORTH);

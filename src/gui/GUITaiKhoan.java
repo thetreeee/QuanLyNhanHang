@@ -99,6 +99,11 @@ public class GUITaiKhoan extends JFrame {
         btnLogin.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+        // ==========================================
+        // DÒNG LỆNH CẬP NHẬT: Gắn phím Enter cho nút Đăng Nhập
+        // ==========================================
+        getRootPane().setDefaultButton(btnLogin);
+
         loginForm.add(lblLogo);
         loginForm.add(Box.createRigidArea(new Dimension(0, 10)));
         loginForm.add(lblWelcome);
@@ -134,12 +139,9 @@ public class GUITaiKhoan extends JFrame {
         else {
             // --- XỬ LÝ ĐĂNG NHẬP ---
             if (taiKhoanDAO.kiemTraDangNhap(user, pass)) {
-                // ĐÃ XÓA DÒNG THÔNG BÁO THÀNH CÔNG Ở ĐÂY
-                
                 new GUIDashBoard().setVisible(true); // Mở giao diện chính
                 this.dispose(); // Đóng cửa sổ đăng nhập ngay lập tức
             } else {
-                // Vẫn giữ thông báo lỗi nếu sai tài khoản để người dùng biết
                 JOptionPane.showMessageDialog(this, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }

@@ -9,6 +9,8 @@ import connectDB.SQLConnection;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Connection;
@@ -30,6 +32,7 @@ public class ThemGiaBanDialog extends JDialog {
     // --- PHẦN DETAIL (CHI TIẾT MÓN ĂN & GIÁ) ---
     private JTable tableChiTiet;
     private DefaultTableModel modelChiTiet;
+    private JTextField txtTimKiem; // ĐÃ THÊM: Ô tìm kiếm
 
     private JButton btnLuu, btnHuy;
     private QuanLyGiaBanPanel parentPanel;
@@ -39,25 +42,44 @@ public class ThemGiaBanDialog extends JDialog {
     
     private final Color BTN_BLUE = new Color(54, 92, 245);
     private final Color HEADER_BG = new Color(255, 245, 205); 
+    
+    // ĐÃ THÊM: Map lưu tạm giá tiền đang nhập dở trước khi lọc tìm kiếm
+    private Map<String, String> giaDaNhap = new HashMap<>();
+    private List<MonAn> tatCaMonAn = new ArrayList<>(); // Danh sách gốc
 
     public ThemGiaBanDialog(Frame owner, QuanLyGiaBanPanel parentPanel) {
         super(owner, "Thiết Lập Bảng Giá Mới", true);
         this.parentPanel = parentPanel;
-        initComponents();
-        loadDanhSachMonAnVaoBang(); 
         
-        // Tự động phát sinh mã BG mới nhất
+        // Lấy danh sách gốc từ DB 1 lần duy nhất
+        layDanhSachGoc();
+        
+        initComponents();
+        loadDanhSachMonAnVaoBang(""); // Mới mở lên thì load rỗng (load hết)
+        
         txtMaBangGia.setText(giaBan_dao.tuDongPhatSinhMa());
     }
 
+    // Đổ dữ liệu gốc 1 lần để tối ưu hiệu suất, không phải gọi DB mỗi khi gõ phím
+    private void layDanhSachGoc() {
+        List<MonAn> dsMonRaw = monAn_dao.searchMonAn(""); 
+        for (MonAn m : dsMonRaw) {
+            String trangThai = m.getTrangThai();
+            if (trangThai != null && trangThai.equalsIgnoreCase("Tạm ngưng")) {
+                continue; 
+            }
+            tatCaMonAn.add(m);
+        }
+    }
+
     private void initComponents() {
-        setSize(800, 600); 
+        setSize(800, 650); // Tăng chiều cao xíu cho thanh tìm kiếm
         setLocationRelativeTo(getParent());
         setLayout(new BorderLayout(0, 10));
         ((JPanel)getContentPane()).setBorder(new EmptyBorder(15, 15, 15, 15));
 
         // ==========================================
-        // 1. PANEL HEADER (Thông tin chung của Bảng giá)
+        // 1. PANEL HEADER
         // ==========================================
         JPanel pnlHeader = new JPanel(new GridBagLayout());
         pnlHeader.setBackground(HEADER_BG);
@@ -70,18 +92,17 @@ public class ThemGiaBanDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         txtMaBangGia = new JTextField();
-        txtMaBangGia.setEditable(false); // Khóa lại không cho sửa mã sinh tự động
+        txtMaBangGia.setEditable(false); 
         txtMoTa = new JTextField();
         dateBatDau = new JDateChooser();
         dateBatDau.setDateFormatString("dd/MM/yyyy");
-        dateBatDau.setDate(new Date()); // Mặc định hôm nay
+        dateBatDau.setDate(new Date()); 
         
         dateKetThuc = new JDateChooser();
         dateKetThuc.setDateFormatString("dd/MM/yyyy");
         
         cbTrangThai = new JComboBox<>(new String[]{"Đang áp dụng", "Tạm ngưng"});
 
-        // Cột 1: Mã BG và Mô tả
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.1;
         pnlHeader.add(new JLabel("Mã bảng giá:"), gbc);
         gbc.gridx = 1; gbc.weightx = 0.4;
@@ -92,7 +113,6 @@ public class ThemGiaBanDialog extends JDialog {
         gbc.gridx = 1; gbc.weightx = 0.4;
         pnlHeader.add(txtMoTa, gbc);
 
-        // Cột 2: Ngày và Trạng thái
         gbc.gridx = 2; gbc.gridy = 0; gbc.weightx = 0.1;
         pnlHeader.add(new JLabel("Ngày bắt đầu:"), gbc);
         gbc.gridx = 3; gbc.weightx = 0.4;
@@ -111,19 +131,38 @@ public class ThemGiaBanDialog extends JDialog {
         add(pnlHeader, BorderLayout.NORTH);
 
         // ==========================================
-        // 2. PANEL DETAIL (Bảng thiết lập giá cho từng món)
+        // 2. PANEL DETAIL 
         // ==========================================
-        JPanel pnlDetail = new JPanel(new BorderLayout());
+        JPanel pnlDetail = new JPanel(new BorderLayout(0, 10));
         pnlDetail.setBorder(BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(Color.GRAY), "Chi tiết giá bán (Detail) - Ghi giá vào ô tương ứng", TitledBorder.LEFT, TitledBorder.TOP, new Font("Segoe UI", Font.BOLD, 14)
+            BorderFactory.createLineBorder(Color.GRAY), "Chi tiết giá bán (Detail)", TitledBorder.LEFT, TitledBorder.TOP, new Font("Segoe UI", Font.BOLD, 14)
         ));
 
-        // Bảng gồm 3 cột. Cột 2 (Giá bán) cho phép Edit
+        // --- THANH TÌM KIẾM MỚI ---
+        JPanel pnlTimKiem = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JLabel lblSearch = new JLabel("Tìm kiếm món ăn: ");
+        lblSearch.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        txtTimKiem = new JTextField(25);
+        txtTimKiem.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtTimKiem.putClientProperty("JTextField.placeholderText", "Nhập tên món...");
+        
+        pnlTimKiem.add(lblSearch);
+        pnlTimKiem.add(txtTimKiem);
+        pnlDetail.add(pnlTimKiem, BorderLayout.NORTH);
+
+        // --- SỰ KIỆN GÕ TÌM KIẾM ---
+        txtTimKiem.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { locTimKiem(); }
+            @Override public void removeUpdate(DocumentEvent e) { locTimKiem(); }
+            @Override public void changedUpdate(DocumentEvent e) { locTimKiem(); }
+        });
+
+        // Bảng
         String[] cols = {"Mã Sản Phẩm", "Tên Sản Phẩm", "Giá Bán Thiết Lập (VNĐ)"};
         modelChiTiet = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 2; // CHỈ CHO PHÉP SỬA CỘT GIÁ BÁN
+                return column == 2; 
             }
         };
         tableChiTiet = new JTable(modelChiTiet);
@@ -157,18 +196,40 @@ public class ThemGiaBanDialog extends JDialog {
         add(pnlButtons, BorderLayout.SOUTH);
     }
 
-    private void loadDanhSachMonAnVaoBang() {
-        List<MonAn> dsMon = monAn_dao.searchMonAn(""); 
-        for (MonAn m : dsMon) {
-            modelChiTiet.addRow(new Object[]{m.getMaMon(), m.getTenMon(), ""});
+    // Lưu lại trạng thái giá đang nhập trước khi xóa bảng để lọc
+    private void luuTamGiaDangNhap() {
+        if (tableChiTiet.isEditing()) {
+            tableChiTiet.getCellEditor().stopCellEditing();
+        }
+        for (int i = 0; i < tableChiTiet.getRowCount(); i++) {
+            String maMon = tableChiTiet.getValueAt(i, 0).toString();
+            Object giaObj = tableChiTiet.getValueAt(i, 2);
+            if (giaObj != null && !giaObj.toString().trim().isEmpty()) {
+                giaDaNhap.put(maMon, giaObj.toString().trim());
+            }
+        }
+    }
+
+    // Xử lý sự kiện gõ tìm kiếm
+    private void locTimKiem() {
+        luuTamGiaDangNhap(); // Lưu nháp trước
+        String keyword = txtTimKiem.getText().trim().toLowerCase();
+        loadDanhSachMonAnVaoBang(keyword);
+    }
+
+    private void loadDanhSachMonAnVaoBang(String keyword) {
+        modelChiTiet.setRowCount(0); 
+        for (MonAn m : tatCaMonAn) {
+            if (m.getTenMon().toLowerCase().contains(keyword)) {
+                // Khôi phục lại giá trị cũ nếu người dùng đã nhập trước đó
+                String giaCu = giaDaNhap.getOrDefault(m.getMaMon(), "");
+                modelChiTiet.addRow(new Object[]{m.getMaMon(), m.getTenMon(), giaCu});
+            }
         }
     }
 
     private void luuVaoDatabase() {
-        // Dừng việc Edit cell trên Table nếu người dùng đang gõ dở giá tiền
-        if (tableChiTiet.isEditing()) {
-            tableChiTiet.getCellEditor().stopCellEditing();
-        }
+        luuTamGiaDangNhap(); // Phải chốt lưu nháp 1 lần cuối trước khi ghi xuống DB
 
         String maBG = txtMaBangGia.getText().trim();
         String moTa = txtMoTa.getText().trim();
@@ -176,38 +237,27 @@ public class ThemGiaBanDialog extends JDialog {
         Date dKT = dateKetThuc.getDate();
         String trangThai = cbTrangThai.getSelectedItem().toString();
         
-        // 1. Validate Header
-        if (maBG.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Mã bảng giá không được rỗng!"); return;
-        }
-        if (dBD == null || (dKT != null && dKT.before(dBD))) {
-            JOptionPane.showMessageDialog(this, "Lỗi ngày bắt đầu / kết thúc!"); return;
-        }
-        if (giaBan_dao.kiemTraTrungMa(maBG)) {
-            JOptionPane.showMessageDialog(this, "Mã bảng giá đã tồn tại!"); return;
-        }
+        if (maBG.isEmpty()) { JOptionPane.showMessageDialog(this, "Mã bảng giá không được rỗng!"); return; }
+        if (dBD == null || (dKT != null && dKT.before(dBD))) { JOptionPane.showMessageDialog(this, "Lỗi ngày bắt đầu / kết thúc!"); return; }
+        if (giaBan_dao.kiemTraTrungMa(maBG)) { JOptionPane.showMessageDialog(this, "Mã bảng giá đã tồn tại!"); return; }
 
-        // 2. Thu thập dữ liệu từ Detail (JTable) để chuẩn bị kiểm tra
         List<String> dsMaMonDaNhapGia = new ArrayList<>();
         Map<String, Double> dsGiaMoi = new HashMap<>();
 
-        for (int i = 0; i < tableChiTiet.getRowCount(); i++) {
-            String maMon = tableChiTiet.getValueAt(i, 0).toString();
-            Object giaObj = tableChiTiet.getValueAt(i, 2);
-            String giaStr = (giaObj != null) ? giaObj.toString().trim() : "";
+        // Quét trên Map giaDaNhap thay vì quét trên bảng (bởi vì bảng có thể đang bị thu gọn do tìm kiếm)
+        for (Map.Entry<String, String> entry : giaDaNhap.entrySet()) {
+            String maMon = entry.getKey();
+            String giaStr = entry.getValue();
             
-            // Chỉ thêm vào danh sách nếu có nhập giá
-            if (!giaStr.isEmpty()) {
-                try {
-                    double giaBan = Double.parseDouble(giaStr);
-                    if (giaBan > 0) {
-                        dsMaMonDaNhapGia.add(maMon);
-                        dsGiaMoi.put(maMon, giaBan);
-                    }
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(this, "Lỗi: Giá của món " + maMon + " không hợp lệ!");
-                    return; // Ngừng lại ngay nếu có chữ hoặc ký tự lạ
+            try {
+                double giaBan = Double.parseDouble(giaStr);
+                if (giaBan > 0) {
+                    dsMaMonDaNhapGia.add(maMon);
+                    dsGiaMoi.put(maMon, giaBan);
                 }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi: Giá nhập không hợp lệ ở một số món!");
+                return; 
             }
         }
 
@@ -216,23 +266,20 @@ public class ThemGiaBanDialog extends JDialog {
             return;
         }
 
-        // 3. KIỂM TRA RÀNG BUỘC CHỐNG TRÙNG LẤP THỜI GIAN (OVERLAP)
         if (trangThai.equals("Đang áp dụng")) {
             String overlapMsg = giaBan_dao.checkMonDaCoGia(dsMaMonDaNhapGia, maBG, dBD, dKT);
             if (overlapMsg != null) {
                 JOptionPane.showMessageDialog(this, overlapMsg + "\nVui lòng điều chỉnh lại ngày hoặc tạm ngưng bảng giá cũ!", 
                                               "Cảnh báo trùng lấp giá", JOptionPane.WARNING_MESSAGE);
-                return; // Chặn lại không cho lưu
+                return; 
             }
         }
 
-        // 4. Bắt đầu lưu vào Database (Transaction)
         Connection con = null;
         try {
             con = SQLConnection.getConnection();
-            con.setAutoCommit(false); // Dùng Transaction
+            con.setAutoCommit(false); 
 
-            // Bước A: Lưu Header (Bảng giá)
             String sqlBG = "INSERT INTO BangGia (maBangGia, moTa, ngayBatDau, ngayKetThuc, trangThai) VALUES (?, ?, ?, ?, ?)";
             PreparedStatement pst1 = con.prepareStatement(sqlBG);
             pst1.setString(1, maBG);
@@ -242,7 +289,6 @@ public class ThemGiaBanDialog extends JDialog {
             pst1.setString(5, trangThai);
             pst1.executeUpdate();
 
-            // Bước B: Lưu Detail (Chi tiết bảng giá) bằng Batch
             String sqlCT = "INSERT INTO ChiTietBangGia (maBangGia, maMon, giaBan) VALUES (?, ?, ?)";
             PreparedStatement pst2 = con.prepareStatement(sqlCT);
 
@@ -260,7 +306,6 @@ public class ThemGiaBanDialog extends JDialog {
             if (parentPanel != null) {
                 parentPanel.loadDataToTable();
                 
-                // Cập nhật lại giao diện thực đơn nếu cần
                 GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this.parentPanel);
                 if(dashBoard != null && dashBoard.getPnlThucDon() != null) {
                     dashBoard.getPnlThucDon().loadDataFromDatabase();
@@ -275,4 +320,4 @@ public class ThemGiaBanDialog extends JDialog {
             try { if (con != null) con.close(); } catch (SQLException e) {}
         }
     }
-}	
+}
