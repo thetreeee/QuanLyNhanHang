@@ -10,11 +10,8 @@ import java.util.List;
 
 public class GUIDashBoardNVPV extends JFrame {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-	private final Color SIDEBAR_BG = new Color(255, 246, 246); 
+    private static final long serialVersionUID = 1L;
+    private final Color SIDEBAR_BG = new Color(255, 246, 246); 
     private final Color MAIN_BG = Color.WHITE;
     private final Color ACTIVE_PINK = new Color(255, 182, 182); 
     private final Color TEXT_DARK = new Color(70, 70, 70);
@@ -24,8 +21,7 @@ public class GUIDashBoardNVPV extends JFrame {
     private CardLayout cardLayout;
     private List<JButton> menuButtons = new ArrayList<>();
 
-    private ThucDonPanel pnlThucDon;
-    private QuanLyGiaBanPanel pnlGiaBan;
+    // ĐÃ XÓA: pnlThucDon và pnlGiaBan, chỉ giữ lại Sơ đồ bàn
     private SoDoBanPanel_NVPV pnlSoDoBan;
 
     public GUIDashBoardNVPV() {
@@ -53,10 +49,8 @@ public class GUIDashBoardNVPV extends JFrame {
         
         menuContainer.add(createBrandPanel());
 
-
-        addMenu(menuContainer, "Thực đơn", "/icons/menu (1).png", "ThucDon"); 
-        addMenu(menuContainer, "Bảng giá", "/icons/list.png", "BangGia");
-        addMenu(menuContainer, "Sơ đồ bàn", "/icons/seating.png", "SoDoBan");
+        // ĐÃ XÓA menu Thực đơn và Bảng giá
+        addMenu(menuContainer, "Gọi món", "icons/seating.png", "SoDoBan");
 
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
@@ -66,17 +60,15 @@ public class GUIDashBoardNVPV extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
 
-        pnlThucDon = new ThucDonPanel();
-        pnlGiaBan = new QuanLyGiaBanPanel();
         pnlSoDoBan = new SoDoBanPanel_NVPV();
-
 
         mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
-        cardLayout.show(mainContentPanel, "ThucDon");
-        setActiveMenu("Thực đơn");
+        // Mặc định hiện Sơ đồ bàn
+        cardLayout.show(mainContentPanel, "SoDoBan");
+        setActiveMenu("Sơ đồ bàn");
     }
 
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {
@@ -96,16 +88,13 @@ public class GUIDashBoardNVPV extends JFrame {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         menuButtons.add(btn);
-        
 
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, cardName);
             setActiveMenu(text);
 
-            if (cardName.equals("ThucDon")) {
-                pnlThucDon.loadDataFromDatabase(); 
-            } else if (cardName.equals("BangGia")) {
-                pnlGiaBan.loadDataToTable();
+            if (cardName.equals("SoDoBan")) {
+                pnlSoDoBan.loadData(""); 
             }
         });
         
@@ -134,7 +123,7 @@ public class GUIDashBoardNVPV extends JFrame {
         GridBagConstraints g = new GridBagConstraints();
         
         g.gridx = 0; g.gridy = 0; g.gridheight = 2; g.insets = new Insets(0, 0, 0, 12);
-        p.add(new JLabel(getIconFromFile("/icons/logoNHTT.png", 55)), g);
+        p.add(new JLabel(getIconFromFile("icons/logoNHTT.png", 55)), g);
         
         g.gridx = 1; g.gridheight = 1; g.insets = new Insets(0, 0, 0, 0);
         JLabel l1 = new JLabel("Nhà hàng");
@@ -176,6 +165,7 @@ public class GUIDashBoardNVPV extends JFrame {
         btnLogout.addActionListener(e -> {
             if (JOptionPane.showConfirmDialog(this, "Xác nhận đăng xuất?", "Thoát", 0) == 0) {
                 this.dispose(); 
+                new GUITaiKhoan().setVisible(true); // Trở về trang đăng nhập
             }
         });
         
@@ -185,24 +175,19 @@ public class GUIDashBoardNVPV extends JFrame {
         return p;
     }
 
-    public ThucDonPanel getPnlThucDon() {
-        return this.pnlThucDon;
-    }
+    // Đã xóa hàm getPnlThucDon() vì không còn dùng tới nữa
 
     private ImageIcon getIconFromFile(String path, int size) {
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource(path));
-            Image img = icon.getImage();
-
-            Image scaled = img.getScaledInstance(size, size, Image.SCALE_SMOOTH);
-            return new ImageIcon(scaled);
-        } catch (Exception e) {
-            System.out.println("Không load được ảnh: " + path);
-            return null;
+        File f = new File(path);
+        if (f.exists()) {
+            Image img = new ImageIcon(path).getImage().getScaledInstance(size, size, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
         }
+        System.out.println("Không load được ảnh: " + path);
+        return null;
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new GUIDashBoard().setVisible(true));
+        SwingUtilities.invokeLater(() -> new GUIDashBoardNVPV().setVisible(true));
     }
 }

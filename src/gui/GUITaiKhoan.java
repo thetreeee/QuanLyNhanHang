@@ -99,10 +99,7 @@ public class GUITaiKhoan extends JFrame {
         btnLogin.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // ==========================================
-        // DÒNG LỆNH CẬP NHẬT: Gắn phím Enter cho nút Đăng Nhập
-        // ==========================================
-        getRootPane().setDefaultButton(btnLogin);
+        getRootPane().setDefaultButton(btnLogin); // Gắn phím Enter
 
         loginForm.add(lblLogo);
         loginForm.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -118,31 +115,43 @@ public class GUITaiKhoan extends JFrame {
     }
 
     private void xuLyDangNhap() {
-        String user = txtUser.getText();
-        String pass = new String(txtPass.getPassword());
+        String user = txtUser.getText().trim();
+        String pass = new String(txtPass.getPassword()).trim();
 
         if (user.isEmpty() || pass.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng điền đủ thông tin!", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // --- KIỂM TRA RÀNG BUỘC MẬT KHẨU ---
         if (pass.length() < 5) {
             JOptionPane.showMessageDialog(this, "Mật khẩu phải từ 5 ký tự trở lên!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-        } 
-        else if (pass.matches("^[0-9]+$")) {
+        } else if (pass.matches("^[0-9]+$")) {
             JOptionPane.showMessageDialog(this, "Mật khẩu phải chứa thêm chữ cái (không được chỉ có số)!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-        } 
-        else if (pass.matches("^[a-zA-Z]+$")) {
+        } else if (pass.matches("^[a-zA-Z]+$")) {
             JOptionPane.showMessageDialog(this, "Mật khẩu phải chứa thêm chữ số (không được chỉ có chữ)!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-        } 
-        else {
-            // --- XỬ LÝ ĐĂNG NHẬP ---
+        } else {
+            // --- XỬ LÝ ĐĂNG NHẬP THEO QUYỀN (RBAC) ---
             if (taiKhoanDAO.kiemTraDangNhap(user, pass)) {
-                new GUIDashBoard().setVisible(true); // Mở giao diện chính
-                this.dispose(); // Đóng cửa sổ đăng nhập ngay lập tức
+                
+                // Lấy chức vụ từ DB
+                String chucVu = taiKhoanDAO.getRole(user, pass);
+                
+                if (chucVu != null) {
+                    // ĐIỀU HƯỚNG GIAO DIỆN
+                    if (chucVu.equalsIgnoreCase("Quản lý") || chucVu.equalsIgnoreCase("QUANLY")) {
+                        new GUIDashBoard().setVisible(true); // Giao diện đầy đủ quyền
+                    } 
+                    else {
+                        // Nếu là Nhân viên phục vụ, Lễ tân... thì mở giao diện của bạn kia làm
+                        new GUIDashBoardNVPV().setVisible(true); 
+                    }
+                    this.dispose(); // Đóng form đăng nhập
+                } else {
+                    JOptionPane.showMessageDialog(this, "Lỗi lấy thông tin phân quyền!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+
             } else {
-                JOptionPane.showMessageDialog(this, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Sai tài khoản hoặc mật khẩu (hoặc tài khoản đã bị khóa)!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

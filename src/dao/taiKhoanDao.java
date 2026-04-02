@@ -5,17 +5,16 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-import connectDB.SQLConnection;
-
 public class taiKhoanDao {
+    // Nhớ điều chỉnh lại tên database, user, pass cho đúng với máy của bạn nếu cần
     private String url = "jdbc:sqlserver://localhost:1433;databaseName=TuanTruongDB;encrypt=false";
     private String dbUser = "sa"; 
     private String dbPass = "sapassword"; 
 
     public boolean kiemTraDangNhap(String user, String pass) {
         try (Connection con = DriverManager.getConnection(url, dbUser, dbPass)) {
-            // ĐÃ CẬP NHẬT: chucVu = N'Quản lý' để khớp chính xác với lệnh SQL của bạn
-            String sql = "SELECT maNV, matKhau FROM NhanVien WHERE maNV = ? AND matKhau = ? AND chucVu = N'Quản lý' AND trangThai = N'Đang làm'";
+            // ĐÃ SỬA: Xóa điều kiện chucVu = 'QUANLY' để mọi nhân viên đều có thể đăng nhập
+            String sql = "SELECT maNV, matKhau FROM NhanVien WHERE maNV = ? AND matKhau = ? AND trangThai = N'Đang làm'";
             
             PreparedStatement pst = con.prepareStatement(sql);
             pst.setString(1, user);
@@ -23,25 +22,28 @@ public class taiKhoanDao {
             
             ResultSet rs = pst.executeQuery();
             
+            // Nếu có kết quả trả về từ SQL, ta bắt đầu dùng Java để kiểm tra hoa/thường
             if (rs.next()) {
-                // Dùng .trim() để cắt sạch mọi khoảng trắng thừa (rất hay gặp nếu DB dùng kiểu CHAR)
-                String dbMaNV = rs.getString("maNV").trim();
-                String dbMatKhau = rs.getString("matKhau").trim();
+                String dbMaNV = rs.getString("maNV");
+                String dbMatKhau = rs.getString("matKhau");
                 
-                // Kiểm tra chính xác chữ hoa/chữ thường trong Java
+                // Hàm .equals() của Java sẽ bắt buộc chính xác 100% từng ký tự hoa/thường
                 if (user.equals(dbMaNV) && pass.equals(dbMatKhau)) {
-                    return true; 
+                    return true; // Hoàn toàn trùng khớp
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         
+        // Trả về false nếu sai tài khoản, sai mật khẩu, sai chữ hoa/thường
         return false; 
     }
+    
     public String getRole(String user, String pass) {
-        String sql = "SELECT chucVu FROM NhanVien WHERE maNV = ? AND matKhau = ?";
-        try (Connection con = SQLConnection.getConnection();
+        // CẬP NHẬT: Thêm điều kiện trangThai = N'Đang làm' cho chặt chẽ
+        String sql = "SELECT chucVu FROM NhanVien WHERE maNV = ? AND matKhau = ? AND trangThai = N'Đang làm'";
+        try (Connection con = DriverManager.getConnection(url, dbUser, dbPass);
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, user);
@@ -49,7 +51,7 @@ public class taiKhoanDao {
 
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                return rs.getString("chucVu");
+                return rs.getString("chucVu"); // Sẽ trả về "Quản lý", "Nhân viên phục vụ", v.v.
             }
         } catch (Exception e) {
             e.printStackTrace();

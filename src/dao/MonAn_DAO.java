@@ -1,6 +1,8 @@
 package dao;
 
 import connectDB.SQLConnection;
+
+import entity.MonAnTT;
 import entity.MonAn;
 import java.sql.*;
 import java.util.ArrayList;
@@ -159,5 +161,35 @@ public class MonAn_DAO {
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return false;
+    }
+    
+    public List<MonAnTT> getMenuHienTai() {
+        List<MonAnTT> list = new ArrayList<>();
+
+        String sql = 
+        		"SELECT m.maMon, m.tenMon, m.hinhAnh, ct.giaBan " +
+        	    "FROM MonAn m " +
+        	    "JOIN ChiTietBangGia ct ON m.maMon = ct.maMon " +
+        	    "JOIN BangGia bg ON bg.maBangGia = ct.maBangGia " +
+        	    "WHERE bg.trangThai = N'Đang áp dụng'";
+
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                list.add(new MonAnTT(
+                        rs.getString("maMon"),
+                        rs.getString("tenMon"),
+                        rs.getString("hinhAnh"),
+                        rs.getDouble("giaBan")
+                ));
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return list;
     }
 }

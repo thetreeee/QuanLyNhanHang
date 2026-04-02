@@ -4,21 +4,19 @@ import dao.MonAn_DAO;
 import entity.*;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.List;
 
 public class GoiMonPanel extends JPanel {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-
-	private Ban ban;
+    private static final long serialVersionUID = 1L;
+    private Ban ban;
 
     private JPanel pnlMenu;
     private JTextField txtSearch;
@@ -53,6 +51,7 @@ public class GoiMonPanel extends JPanel {
         // ===== MENU LEFT =====
         pnlMenu = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         JScrollPane scrollMenu = new JScrollPane(pnlMenu);
+        scrollMenu.getVerticalScrollBar().setUnitIncrement(16); // Lăn chuột mượt hơn
 
         // ===== ORDER RIGHT =====
         pnlOrder = new JPanel();
@@ -72,9 +71,6 @@ public class GoiMonPanel extends JPanel {
         btnHuy.setBackground(Color.GRAY);
         btnHuy.setForeground(Color.WHITE);
 
-//        btnTang.addActionListener(e -> tangSL());
-//        btnGiam.addActionListener(e -> giamSL());
-//        btnXoa.addActionListener(e -> xoaMon());
         btnSave.addActionListener(e -> saveToDB());
         btnHuy.addActionListener(e -> {
             dsOrder.clear();
@@ -108,15 +104,14 @@ public class GoiMonPanel extends JPanel {
         pnlMenu.removeAll();
 
         dsMon = monAnDAO.getAllMonAnWithActivePrice();
-
         String keyword = txtSearch.getText().trim().toLowerCase();
 
         for (MonAn m : dsMon) {
-
             // filter theo tên hoặc mã
             if (!m.getTenMon().toLowerCase().contains(keyword)
                     && !m.getMaMon().toLowerCase().contains(keyword)) continue;
             if (m.getGiaBan() <= 0) continue;
+            
             pnlMenu.add(createMonCard(m));
         }
 
@@ -131,16 +126,33 @@ public class GoiMonPanel extends JPanel {
         card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // ===== IMAGE =====
+        // ===== IMAGE CẬP NHẬT MỚI =====
         JLabel lblImg = new JLabel();
         lblImg.setHorizontalAlignment(SwingConstants.CENTER);
 
-        try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/images/" + m.getHinhAnh()));
-            Image img = icon.getImage().getScaledInstance(90, 90, Image.SCALE_SMOOTH);
-            lblImg.setIcon(new ImageIcon(img));
-        } catch (Exception e) {
+        String imgName = m.getHinhAnh();
+        boolean loaded = false;
+
+        if (imgName != null && !imgName.trim().isEmpty()) {
+            // 1. Thử tìm trong thư mục images/ của project
+            File f = new File("images/" + imgName);
+            
+            // 2. Nếu không thấy, thử tìm theo đường dẫn tuyệt đối (nếu DB lưu nguyên C:/...)
+            if (!f.exists()) {
+                f = new File(imgName);
+            }
+            
+            if (f.exists()) {
+                ImageIcon icon = new ImageIcon(f.getAbsolutePath());
+                Image img = icon.getImage().getScaledInstance(90, 90, Image.SCALE_SMOOTH);
+                lblImg.setIcon(new ImageIcon(img));
+                loaded = true;
+            }
+        }
+        
+        if (!loaded) {
             lblImg.setText("No Image");
+            lblImg.setForeground(Color.GRAY);
         }
 
         // ===== TEXT =====
@@ -151,6 +163,9 @@ public class GoiMonPanel extends JPanel {
         lblPrice.setForeground(new Color(220, 50, 50));
 
         JPanel pnlBottom = new JPanel(new GridLayout(2,1));
+        pnlBottom.setBackground(Color.WHITE);
+        card.setBackground(Color.WHITE);
+        
         pnlBottom.add(lblName);
         pnlBottom.add(lblPrice);
 
@@ -197,32 +212,8 @@ public class GoiMonPanel extends JPanel {
         pnlOrder.revalidate();
         pnlOrder.repaint();
         updateTotal();
- 
     }
 
-//    private void tangSL() {
-//        DonGoiMon item = list.getSelectedValue();
-//        if (item != null) {
-//            item.tangSL();
-//            refresh();
-//        }
-//    }
-//
-//    private void giamSL() {
-//        DonGoiMon item = list.getSelectedValue();
-//        if (item != null) {
-//            item.giamSL();
-//            refresh();
-//        }
-//    }
-//
-//    private void xoaMon() {
-//        DonGoiMon item = list.getSelectedValue();
-//        if (item != null) {
-//            dsOrder.remove(item);
-//            refresh();
-//        }
-//    }
     private JPanel createOrderItem(DonGoiMon item) {
         JPanel p = new JPanel(new BorderLayout());
         p.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
@@ -234,6 +225,8 @@ public class GoiMonPanel extends JPanel {
         JButton btnDelete = new JButton("X");
 
         JLabel lblSL = new JLabel(String.valueOf(item.getSoLuong()));
+        lblSL.setHorizontalAlignment(SwingConstants.CENTER);
+        lblSL.setPreferredSize(new Dimension(30, 30));
 
         // STYLE
         btnMinus.setBackground(Color.LIGHT_GRAY);
@@ -260,7 +253,7 @@ public class GoiMonPanel extends JPanel {
             refresh();
         });
 
-        JPanel pnlRight = new JPanel();
+        JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         pnlRight.add(btnMinus);
         pnlRight.add(lblSL);
         pnlRight.add(btnPlus);
@@ -277,8 +270,12 @@ public class GoiMonPanel extends JPanel {
         for (DonGoiMon d : dsOrder) {
             sum += d.getSoLuong() * d.getGia();
         }
+        lblTongTien.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTongTien.setForeground(new Color(220, 53, 69));
+        lblTongTien.setBorder(new EmptyBorder(10, 0, 0, 0));
         lblTongTien.setText("Tổng: " + formatPrice(sum));
     }
+    
     // ===== SAVE =====
     private void saveToDB() {
         if (dsOrder.isEmpty()) {
@@ -291,6 +288,6 @@ public class GoiMonPanel extends JPanel {
             System.out.println(d);
         }
 
-        JOptionPane.showMessageDialog(this, "Đã lưu!");
+        JOptionPane.showMessageDialog(this, "Đã lưu đơn gọi món!");
     }
 }
