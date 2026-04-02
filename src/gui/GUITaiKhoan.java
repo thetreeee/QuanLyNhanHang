@@ -138,12 +138,23 @@ public class GUITaiKhoan extends JFrame {
         } 
         else {
             // --- XỬ LÝ ĐĂNG NHẬP ---
-            if (taiKhoanDAO.kiemTraDangNhap(user, pass)) {
-                new GUIDashBoard().setVisible(true); // Mở giao diện chính
-                this.dispose(); // Đóng cửa sổ đăng nhập ngay lập tức
-            } else {
-                JOptionPane.showMessageDialog(this, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
+        	String role = taiKhoanDAO.getRole(user, pass);
+
+        	if (role == null) {
+        	    JOptionPane.showMessageDialog(this, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        	    return;
+        	}
+
+        	// PHÂN QUYỀN
+        	if (role.equalsIgnoreCase("QUANLY")) {
+        	    new GUIDashBoard().setVisible(true);
+        	} 
+        	else if (role.equalsIgnoreCase("NHANVIENPHUCVU")) {
+        	    new GUIDashBoardNVPV().setVisible(true); 
+        	}
+
+        	this.dispose();
+
         }
     }
 
