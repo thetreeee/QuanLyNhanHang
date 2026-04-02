@@ -28,5 +28,6 @@
 	<classpathentry kind="lib" path="src/lib/poi-scratchpad-5.2.3.jar"/>
 	<classpathentry kind="lib" path="src/lib/SparseBitSet-1.2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Admin/Documents/code1ty/phattrienungdung/N7_QuanLyDatBan/nhahangTuanTruong/src/lib/flatlaf-3.4.1.jar"/>
+	<classpathentry kind="lib" path="src/lib/flatlaf-3.4.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
