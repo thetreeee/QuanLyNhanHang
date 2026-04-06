@@ -3,7 +3,7 @@ package entity;
 public class Ban {
     private String maBan;
     private String tenBan;
-    private int soGhe; // DB là soChoNgoi, nhưng Java dùng soGhe theo mô tả
+    private int soGhe; 
     private String trangThai;
     private String viTri;
 
@@ -39,7 +39,6 @@ public class Ban {
     }
 
     public void setMaBan(String maBan) {
-        // Ràng buộc 1.1: Bắt đầu bằng B và sau đó là 3 chữ số (VD: B001)
         if (maBan == null || !maBan.matches("^B\\d{3}$")) {
             throw new IllegalArgumentException("Mã bàn phải có định dạng Bxxx (ví dụ: B001)");
         }
@@ -51,7 +50,6 @@ public class Ban {
     }
 
     public void setTenBan(String tenBan) {
-        // Ràng buộc 2.3
         if (tenBan == null || tenBan.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên bàn không được rỗng");
         }
@@ -63,7 +61,6 @@ public class Ban {
     }
 
     public void setSoGhe(int soGhe) {
-        // Ràng buộc 2.5
         if (soGhe <= 0) {
             throw new IllegalArgumentException("Số ghế phải lớn hơn 0");
         }
@@ -74,12 +71,29 @@ public class Ban {
         return trangThai;
     }
 
+    /**
+     * CẬP NHẬT: Nới lỏng ràng buộc để chấp nhận các trạng thái tiếng Việt
+     * giúp hệ thống đổi màu tự động không bị văng lỗi.
+     */
     public void setTrangThai(String trangThai) {
-        // Ràng buộc 2.7
-        if (!trangThai.equals("Trống") && !trangThai.equals("Đang sử dụng") && !trangThai.equals("Đã đặt trước")) {
-            throw new IllegalArgumentException("Trạng thái bàn không hợp lệ");
+        if (trangThai == null) {
+            this.trangThai = "Trống";
+            return;
         }
-        this.trangThai = trangThai;
+
+        String tt = trangThai.trim();
+        // Chấp nhận tất cả các trạng thái mà dự án đang dùng để hiển thị màu (Xanh, Vàng, Đỏ)
+        if (tt.equalsIgnoreCase("Trống") || 
+            tt.equalsIgnoreCase("Đã đặt") || 
+            tt.equalsIgnoreCase("Đã đặt trước") || 
+            tt.equalsIgnoreCase("Đang sử dụng") || 
+            tt.equalsIgnoreCase("Đang dùng")) {
+            
+            this.trangThai = tt;
+        } else {
+            // Nếu dữ liệu DB lạ, mặc định về Trống thay vì làm sập chương trình
+            this.trangThai = "Trống";
+        }
     }
 
     public String getViTri() {
@@ -93,7 +107,6 @@ public class Ban {
         this.viTri = viTri;
     }
 
-    // 4. Phương thức toString()
     @Override
     public String toString() {
         return "Bàn [Mã bàn: " + maBan + ", Tên bàn: " + tenBan + ", Số ghế: " + soGhe 

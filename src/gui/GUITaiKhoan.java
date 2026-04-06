@@ -139,13 +139,20 @@ public class GUITaiKhoan extends JFrame {
                 if (chucVu != null) {
                     // ĐIỀU HƯỚNG GIAO DIỆN
                     if (chucVu.equalsIgnoreCase("Quản lý") || chucVu.equalsIgnoreCase("QUANLY")) {
-                        new GUIDashBoard().setVisible(true); // Giao diện đầy đủ quyền
+                        new GUIDashBoard().setVisible(true); // Mở Dashboard Quản lý
                     } 
-                    else {
-                        // Nếu là Nhân viên phục vụ, Lễ tân... thì mở giao diện của bạn kia làm
-                        new GUIDashBoardNVPV().setVisible(true); 
+                    else if (chucVu.equalsIgnoreCase("Nhân viên phục vụ") || chucVu.equalsIgnoreCase("NHANVIENPHUCVU")) {
+                        new GUIDashBoardNVPV().setVisible(true); // Mở Dashboard Nhân viên Phục vụ
                     }
-                    this.dispose(); // Đóng form đăng nhập
+                    else if (chucVu.equalsIgnoreCase("Nhân viên lễ tân") || chucVu.equalsIgnoreCase("NHANVIENLETAN")) {
+                        new GUIDashBoardNVLT().setVisible(true); // Mở Dashboard Nhân viên Lễ tân
+                    }
+                    else {
+                        // Trường hợp các chức vụ khác chưa code xong giao diện (như Thu ngân, v.v...)
+                        JOptionPane.showMessageDialog(this, "Chưa có giao diện cho chức vụ: " + chucVu, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                        return; // Dừng lại, không đóng form đăng nhập
+                    }
+                    this.dispose(); // Đóng form đăng nhập khi vào được dashboard tương ứng
                 } else {
                     JOptionPane.showMessageDialog(this, "Lỗi lấy thông tin phân quyền!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }

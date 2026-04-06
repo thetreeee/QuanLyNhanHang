@@ -17,10 +17,7 @@ import java.util.stream.Collectors;
 
 public class SoDoBanPanel_NVPV extends JPanel {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
     private final Color COLOR_TRONG = new Color(40, 167, 69);   
     private final Color COLOR_DUNG = new Color(220, 53, 69);     
@@ -53,7 +50,6 @@ public class SoDoBanPanel_NVPV extends JPanel {
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
         topWrapper.setOpaque(false);
 
-
         JPanel timeBanner = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         timeBanner.setBackground(new Color(255, 246, 246));
         timeBanner.putClientProperty("FlatLaf.style", "arc: 15");
@@ -71,10 +67,10 @@ public class SoDoBanPanel_NVPV extends JPanel {
         topWrapper.add(timeBanner);
         topWrapper.add(Box.createRigidArea(new Dimension(0, 20)));
 
-
         JPanel titleActionPanel = new JPanel(new BorderLayout());
         titleActionPanel.setOpaque(false);
 
+        // ĐÃ FIX XUNG ĐỘT GIT Ở ĐÂY: Giữ lại tiêu đề "Gọi món"
         JLabel lblTitle = new JLabel("Gọi món");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_DARK);
@@ -93,30 +89,11 @@ public class SoDoBanPanel_NVPV extends JPanel {
             public void changedUpdate(DocumentEvent e) { loadData(txtSearch.getText()); }
         });
 
-
-//        JButton btnThem = new JButton("+ Thêm bàn mới");
-//        btnThem.setBackground(new Color(255, 209, 102)); 
-//        btnThem.setForeground(Color.BLACK);
-//        btnThem.setFont(new Font("Segoe UI", Font.BOLD, 13));
-//        btnThem.setPreferredSize(new Dimension(160, 42));
-//        btnThem.setFocusPainted(false);
-//        btnThem.setCursor(new Cursor(Cursor.HAND_CURSOR));
-//        btnThem.putClientProperty("JButton.buttonType", "roundRect");
-//        btnThem.putClientProperty("JButton.arc", 15);
-//        
-//        btnThem.addActionListener(e -> {
-//            DialogThemSuaBan dialog = new DialogThemSuaBan(null, null);
-//            dialog.setVisible(true);
-//            if (dialog.isThanhCong()) loadData(txtSearch.getText());
-//        });
-
         btnActions.add(txtSearch);
-//        btnActions.add(btnThem);
         titleActionPanel.add(btnActions, BorderLayout.EAST);
 
         topWrapper.add(titleActionPanel);
         topWrapper.add(Box.createRigidArea(new Dimension(0, 15)));
-
 
         JPanel pnlFilterBar = new JPanel(new BorderLayout());
         pnlFilterBar.setOpaque(false);
@@ -289,6 +266,9 @@ public class SoDoBanPanel_NVPV extends JPanel {
             @Override public void mouseEntered(MouseEvent e) { lblX.setForeground(Color.WHITE); }
             @Override public void mouseExited(MouseEvent e) { lblX.setForeground(new Color(255, 255, 255, 180)); }
         });
+        
+        // Ghi chú: Tôi vẫn để lại dấu "X" xóa bàn theo code cũ của bạn, 
+        // nếu bạn muốn Nhân viên không được quyền xóa bàn thì có thể comment đoạn add(lblX) lại nhé!
         card.add(lblX, BorderLayout.NORTH);
         
         JPanel pnlCenter = new JPanel(new GridLayout(2, 1)); 

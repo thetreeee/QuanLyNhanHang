@@ -18,7 +18,6 @@ public class BanDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
              
             while (rs.next()) {
-                // Lưu ý DB tên cột là soChoNgoi, ta map vào soGhe của Entity
                 Ban ban = new Ban(
                     rs.getString("maBan"),
                     rs.getString("tenBan"),
@@ -86,7 +85,7 @@ public class BanDAO {
         return false;
     }
 
-    // Tự động phát sinh mã bàn Bxxx (VD: B001, B002)
+    // Tự động phát sinh mã bàn Bxxx
     public String phatSinhMaBanTuDong() {
         String maMoi = "B001";
         String sql = "SELECT MAX(maBan) AS MaxMa FROM Ban WHERE maBan LIKE 'B%'";
@@ -96,13 +95,52 @@ public class BanDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
              
             if (rs.next() && rs.getString("MaxMa") != null) {
-                String maxMa = rs.getString("MaxMa"); // VD: B015
-                int soHienTai = Integer.parseInt(maxMa.substring(1)); // Cắt chữ B, lấy 15
-                maMoi = String.format("B%03d", soHienTai + 1); // Format lại thành B016
+                String maxMa = rs.getString("MaxMa"); 
+                int soHienTai = Integer.parseInt(maxMa.substring(1)); 
+                maMoi = String.format("B%03d", soHienTai + 1); 
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return maMoi;
+    }
+
+    // --- CÁC HÀM MỚI BỔ SUNG ĐỂ SỬA LỖI ---
+
+    // Lấy thông tin 1 bàn theo mã
+    public Ban getBanByMa(String maBan) {
+        String sql = "SELECT * FROM Ban WHERE maBan = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Ban(
+                        rs.getString("maBan"),
+                        rs.getString("tenBan"),
+                        rs.getInt("soChoNgoi"),
+                        rs.getString("trangThai"),
+                        rs.getString("viTri")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    // Cập nhật trạng thái bàn nhanh
+    public boolean updateTrangThaiBan(String maBan, String trangThaiMoi) {
+        String sql = "UPDATE Ban SET trangThai = ? WHERE maBan = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, trangThaiMoi);
+            ps.setString(2, maBan);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }
