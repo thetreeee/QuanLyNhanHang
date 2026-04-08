@@ -5,6 +5,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.net.URL;
 import dao.taiKhoanDao;
+import entity.NhanVien; // ĐÃ THÊM: Import class NhanVien
 
 public class GUITaiKhoan extends JFrame {
     private JTextField txtUser;
@@ -132,6 +133,10 @@ public class GUITaiKhoan extends JFrame {
         } else {
             // --- XỬ LÝ ĐĂNG NHẬP THEO QUYỀN (RBAC) ---
             if (taiKhoanDAO.kiemTraDangNhap(user, pass)) {
+                
+                // ĐÃ THÊM: Ghi nhớ thông tin người dùng đang đăng nhập vào biến static!
+                // Để lúc lập đơn gọi món/đặt bàn, hệ thống biết ai đang thao tác
+                taiKhoanDao.nvDangNhap = new NhanVien(user, "Nhân viên"); 
                 
                 // Lấy chức vụ từ DB
                 String chucVu = taiKhoanDAO.getRole(user, pass);

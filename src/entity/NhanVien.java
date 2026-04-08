@@ -67,4 +67,8 @@ public class NhanVien {
     public void setLuong(double luong) { this.luong = luong; }
     public void setMatKhau(String matKhau) { this.matKhau = matKhau; }
     public void setGioiTinh(String gioiTinh) { this.gioiTinh = gioiTinh; }
+    public NhanVien(String maNV, String hoTen) {
+        this.maNV = maNV;
+        this.hoTen = hoTen;
+    }
 }

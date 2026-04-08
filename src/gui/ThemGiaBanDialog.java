@@ -32,7 +32,7 @@ public class ThemGiaBanDialog extends JDialog {
     // --- PHẦN DETAIL (CHI TIẾT MÓN ĂN & GIÁ) ---
     private JTable tableChiTiet;
     private DefaultTableModel modelChiTiet;
-    private JTextField txtTimKiem; // ĐÃ THÊM: Ô tìm kiếm
+    private JTextField txtTimKiem; 
 
     private JButton btnLuu, btnHuy;
     private QuanLyGiaBanPanel parentPanel;
@@ -43,24 +43,21 @@ public class ThemGiaBanDialog extends JDialog {
     private final Color BTN_BLUE = new Color(54, 92, 245);
     private final Color HEADER_BG = new Color(255, 245, 205); 
     
-    // ĐÃ THÊM: Map lưu tạm giá tiền đang nhập dở trước khi lọc tìm kiếm
     private Map<String, String> giaDaNhap = new HashMap<>();
-    private List<MonAn> tatCaMonAn = new ArrayList<>(); // Danh sách gốc
+    private List<MonAn> tatCaMonAn = new ArrayList<>(); 
 
     public ThemGiaBanDialog(Frame owner, QuanLyGiaBanPanel parentPanel) {
         super(owner, "Thiết Lập Bảng Giá Mới", true);
         this.parentPanel = parentPanel;
         
-        // Lấy danh sách gốc từ DB 1 lần duy nhất
         layDanhSachGoc();
         
         initComponents();
-        loadDanhSachMonAnVaoBang(""); // Mới mở lên thì load rỗng (load hết)
+        loadDanhSachMonAnVaoBang(""); 
         
         txtMaBangGia.setText(giaBan_dao.tuDongPhatSinhMa());
     }
 
-    // Đổ dữ liệu gốc 1 lần để tối ưu hiệu suất, không phải gọi DB mỗi khi gõ phím
     private void layDanhSachGoc() {
         List<MonAn> dsMonRaw = monAn_dao.searchMonAn(""); 
         for (MonAn m : dsMonRaw) {
@@ -73,7 +70,7 @@ public class ThemGiaBanDialog extends JDialog {
     }
 
     private void initComponents() {
-        setSize(800, 650); // Tăng chiều cao xíu cho thanh tìm kiếm
+        setSize(800, 650); 
         setLocationRelativeTo(getParent());
         setLayout(new BorderLayout(0, 10));
         ((JPanel)getContentPane()).setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -196,7 +193,6 @@ public class ThemGiaBanDialog extends JDialog {
         add(pnlButtons, BorderLayout.SOUTH);
     }
 
-    // Lưu lại trạng thái giá đang nhập trước khi xóa bảng để lọc
     private void luuTamGiaDangNhap() {
         if (tableChiTiet.isEditing()) {
             tableChiTiet.getCellEditor().stopCellEditing();
@@ -210,9 +206,8 @@ public class ThemGiaBanDialog extends JDialog {
         }
     }
 
-    // Xử lý sự kiện gõ tìm kiếm
     private void locTimKiem() {
-        luuTamGiaDangNhap(); // Lưu nháp trước
+        luuTamGiaDangNhap(); 
         String keyword = txtTimKiem.getText().trim().toLowerCase();
         loadDanhSachMonAnVaoBang(keyword);
     }
@@ -221,7 +216,6 @@ public class ThemGiaBanDialog extends JDialog {
         modelChiTiet.setRowCount(0); 
         for (MonAn m : tatCaMonAn) {
             if (m.getTenMon().toLowerCase().contains(keyword)) {
-                // Khôi phục lại giá trị cũ nếu người dùng đã nhập trước đó
                 String giaCu = giaDaNhap.getOrDefault(m.getMaMon(), "");
                 modelChiTiet.addRow(new Object[]{m.getMaMon(), m.getTenMon(), giaCu});
             }
@@ -229,7 +223,7 @@ public class ThemGiaBanDialog extends JDialog {
     }
 
     private void luuVaoDatabase() {
-        luuTamGiaDangNhap(); // Phải chốt lưu nháp 1 lần cuối trước khi ghi xuống DB
+        luuTamGiaDangNhap(); 
 
         String maBG = txtMaBangGia.getText().trim();
         String moTa = txtMoTa.getText().trim();
@@ -237,14 +231,31 @@ public class ThemGiaBanDialog extends JDialog {
         Date dKT = dateKetThuc.getDate();
         String trangThai = cbTrangThai.getSelectedItem().toString();
         
-        if (maBG.isEmpty()) { JOptionPane.showMessageDialog(this, "Mã bảng giá không được rỗng!"); return; }
-        if (dBD == null || (dKT != null && dKT.before(dBD))) { JOptionPane.showMessageDialog(this, "Lỗi ngày bắt đầu / kết thúc!"); return; }
-        if (giaBan_dao.kiemTraTrungMa(maBG)) { JOptionPane.showMessageDialog(this, "Mã bảng giá đã tồn tại!"); return; }
+        // --- ĐÃ NÂNG CẤP BỘ LỌC ĐIỀU KIỆN ---
+        if (maBG.isEmpty()) { 
+            JOptionPane.showMessageDialog(this, "Mã bảng giá không được rỗng!"); 
+            return; 
+        }
+        if (dBD == null) { 
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn Ngày bắt đầu!"); 
+            return; 
+        }
+        if (dKT == null) { 
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn Ngày kết thúc để tránh lỗi áp dụng giá vĩnh viễn!"); 
+            return; 
+        }
+        if (dKT.before(dBD)) { 
+            JOptionPane.showMessageDialog(this, "Lỗi: Ngày kết thúc không được nhỏ hơn Ngày bắt đầu!"); 
+            return; 
+        }
+        if (giaBan_dao.kiemTraTrungMa(maBG)) { 
+            JOptionPane.showMessageDialog(this, "Mã bảng giá đã tồn tại!"); 
+            return; 
+        }
 
         List<String> dsMaMonDaNhapGia = new ArrayList<>();
         Map<String, Double> dsGiaMoi = new HashMap<>();
 
-        // Quét trên Map giaDaNhap thay vì quét trên bảng (bởi vì bảng có thể đang bị thu gọn do tìm kiếm)
         for (Map.Entry<String, String> entry : giaDaNhap.entrySet()) {
             String maMon = entry.getKey();
             String giaStr = entry.getValue();
@@ -285,7 +296,7 @@ public class ThemGiaBanDialog extends JDialog {
             pst1.setString(1, maBG);
             pst1.setString(2, moTa);
             pst1.setDate(3, new java.sql.Date(dBD.getTime()));
-            pst1.setDate(4, dKT != null ? new java.sql.Date(dKT.getTime()) : null);
+            pst1.setDate(4, new java.sql.Date(dKT.getTime()));
             pst1.setString(5, trangThai);
             pst1.executeUpdate();
 

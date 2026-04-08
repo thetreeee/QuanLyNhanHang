@@ -25,7 +25,7 @@ public class QuanLyGiaBanPanel extends JPanel {
     private final Color TABLE_HEADER_BG = new Color(255, 235, 235);
     private final Color TABLE_HEADER_TEXT = new Color(180, 50, 60);
     private final Color TEXT_DARK = new Color(44, 56, 74);
-    private final Color BTN_ADD_YELLOW = new Color(255, 209, 102); // Đổi màu vàng cho đồng bộ
+    private final Color BTN_ADD_YELLOW = new Color(255, 209, 102); 
     private final Color BTN_SEARCH_PINK = new Color(255, 102, 102);
 
     private GiaBan_DAO giaBan_dao = new GiaBan_DAO();
@@ -67,7 +67,7 @@ public class QuanLyGiaBanPanel extends JPanel {
         titleActionPanel.add(lblTitle, BorderLayout.WEST);
 
         JButton btnAdd = createStyledButton("+ Thêm Bảng Giá", BTN_ADD_YELLOW, Color.BLACK);
-        btnAdd.setPreferredSize(new Dimension(160, 42)); // Cho nút thêm to ra một chút
+        btnAdd.setPreferredSize(new Dimension(160, 42)); 
         btnAdd.addActionListener(e -> {
             GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this);
             new ThemGiaBanDialog(dashBoard, this).setVisible(true);
@@ -161,14 +161,13 @@ public class QuanLyGiaBanPanel extends JPanel {
 
     public void loadDataToTable() {
         model.setRowCount(0);
-        Vector<Vector<Object>> data = giaBan_dao.searchBangGiaHeader(""); // Chuỗi rỗng = Load tất cả
+        Vector<Vector<Object>> data = giaBan_dao.searchBangGiaHeader(""); 
         for (Vector<Object> row : data) {
             model.addRow(row);
         }
     }
 
     private void thucHienSuaGia(int row) {
-        // Lấy trực tiếp Mã BG ở cột 0, không cần split chuỗi nữa
         String maBG = model.getValueAt(row, 0).toString();
         
         GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this);
@@ -202,7 +201,7 @@ public class QuanLyGiaBanPanel extends JPanel {
         table.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         table.setShowVerticalLines(false);
         table.setGridColor(new Color(240, 240, 240));
-        table.setSelectionBackground(new Color(232, 240, 254)); // Màu highlight hàng nhạt
+        table.setSelectionBackground(new Color(232, 240, 254)); 
         table.setSelectionForeground(Color.BLACK);
         table.setFocusable(false);
 
@@ -226,16 +225,48 @@ public class QuanLyGiaBanPanel extends JPanel {
                 table.getColumnModel().getColumn(i).setCellRenderer(new DefaultTableCellRenderer() {
                     @Override
                     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                        Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                        setHorizontalAlignment(JLabel.CENTER);
-                        if (value != null) {
-                            if (value.toString().equals("Đang áp dụng")) {
-                                setForeground(isSelected ? new Color(0, 100, 0) : new Color(0, 153, 0)); 
-                                setFont(getFont().deriveFont(Font.BOLD));
-                            } else {
-                                setForeground(Color.RED);
+                        
+                        String originalStatus = value != null ? value.toString() : "";
+                        String displayStatus = originalStatus;
+
+                        // --- THUẬT TOÁN ĐỔI TRẠNG THÁI ẢO DỰA VÀO NGÀY KẾT THÚC ---
+                        Object endDateObj = table.getValueAt(row, 3);
+                        if (endDateObj != null && !endDateObj.toString().isEmpty()) {
+                            try {
+                                String endDateStr = endDateObj.toString();
+                                java.time.LocalDate endDate = null;
+                                
+                                // Hỗ trợ cả 2 định dạng (có xuyệt hoặc có gạch ngang)
+                                if (endDateStr.contains("-")) {
+                                    endDate = java.time.LocalDate.parse(endDateStr, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                                } else if (endDateStr.contains("/")) {
+                                    endDate = java.time.LocalDate.parse(endDateStr, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                                }
+
+                                // Nếu ngày kết thúc đã qua so với ngày hôm nay -> Đổi ảo thành "Quá Ngày"
+                                if (endDate != null && endDate.isBefore(java.time.LocalDate.now())) {
+                                    displayStatus = "Quá Ngày";
+                                }
+                            } catch (Exception ex) {
+                                // Bỏ qua lỗi ép kiểu
                             }
                         }
+
+                        // Đổ chữ mới (displayStatus) ra màn hình thay vì chữ cũ
+                        Component c = super.getTableCellRendererComponent(table, displayStatus, isSelected, hasFocus, row, column);
+                        setHorizontalAlignment(JLabel.CENTER);
+                        
+                        // Cấu hình màu sắc
+                        if (displayStatus.equals("Quá Ngày")) {
+                            setForeground(Color.RED);
+                            setFont(getFont().deriveFont(Font.BOLD));
+                        } else if (displayStatus.equals("Đang áp dụng")) {
+                            setForeground(isSelected ? new Color(0, 100, 0) : new Color(0, 153, 0)); 
+                            setFont(getFont().deriveFont(Font.BOLD));
+                        } else {
+                            setForeground(Color.RED);
+                        }
+                        
                         return c;
                     }
                 });
@@ -256,7 +287,7 @@ public class QuanLyGiaBanPanel extends JPanel {
             lblDelete.setForeground(Color.RED);
             lblDelete.setFont(new Font("Arial", Font.BOLD, 15)); 
             lblDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            lblText.setFont(new Font("Segoe UI", Font.BOLD, 15)); // Bôi đậm Mã Bảng Giá
+            lblText.setFont(new Font("Segoe UI", Font.BOLD, 15)); 
             add(lblDelete, BorderLayout.WEST); 
             add(lblText, BorderLayout.CENTER);  
             setOpaque(true);
@@ -306,7 +337,6 @@ public class QuanLyGiaBanPanel extends JPanel {
         public Object getCellEditorValue() { return lblText.getText(); }
     }
 
-    // --- CẬP NHẬT: DÙNG FLATLAF ĐỂ BO GÓC NÚT BẤM ---
     private JButton createStyledButton(String text, Color bg, Color fg) {
         JButton btn = new JButton(text);
         btn.setBackground(bg);
@@ -316,7 +346,6 @@ public class QuanLyGiaBanPanel extends JPanel {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setFocusPainted(false);
         
-        // Bo góc nút bằng thuộc tính của FlatLaf, bỏ lệnh setBorder cũ
         btn.putClientProperty("JButton.buttonType", "roundRect");
         btn.putClientProperty("JButton.arc", 15);
         

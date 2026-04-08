@@ -4,8 +4,6 @@ import connectDB.SQLConnection;
 
 import entity.MonAnTT;
 import entity.MonAn;
-import entity.MonAnTT;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,15 +20,14 @@ public class MonAn_DAO {
         m.setTenMon(rs.getString("tenMon"));
         m.setHinhAnh(rs.getString("hinhAnh"));
         m.setLoaiMon(rs.getString("loaiMon"));
-        m.setDonViTinh(rs.getString("donViTinh")); // <--- KHẮC PHỤC LỖI THIẾU ĐƠN VỊ TÍNH
-        m.setTrangThai(rs.getString("trangThai")); // <--- KHẮC PHỤC LỖI THIẾU TRẠNG THÁI
-        
-        // Lấy giá bán (Alias trong SQL phải là giaBan)
+        m.setDonViTinh(rs.getString("donViTinh")); 
+        m.setTrangThai(rs.getString("trangThai")); 
+
         double gia = rs.getDouble("giaBan");
         if (rs.wasNull() || gia <= 0) {
-            m.setGiaBan(-1); // Không có giá hợp lệ -> Mờ đi
+            m.setGiaBan(-1); 
         } else {
-            m.setGiaBan(gia); // Có bảng giá 'Đang áp dụng' -> Sáng lên
+            m.setGiaBan(gia); 
         }
         return m;
     }
@@ -41,7 +38,7 @@ public class MonAn_DAO {
      */
     public List<MonAn> getAllMonAnWithActivePrice() {
         List<MonAn> ds = new ArrayList<>();
-        // Câu SQL đảm bảo: Với mỗi món, chỉ lấy giá trị Đang áp dụng và Đúng ngày nhất
+        
         String sql = "SELECT m.*, ( " +
                      "    SELECT TOP 1 ct.giaBan " +
                      "    FROM ChiTietBangGia ct " +
@@ -50,7 +47,7 @@ public class MonAn_DAO {
                      "    AND b.trangThai = N'Đang áp dụng' " +
                      "    AND CAST(GETDATE() AS DATE) BETWEEN b.ngayBatDau AND b.ngayKetThuc " +
                      "    ORDER BY b.ngayBatDau DESC " + 
-                     ") AS giaBan " + // Alias là giaBan để khớp với hàm mapMonAn
+                     ") AS giaBan " + 
                      "FROM MonAn m";
 
         try (Connection con = SQLConnection.getConnection();
@@ -58,7 +55,7 @@ public class MonAn_DAO {
              ResultSet rs = pst.executeQuery()) {
 
             while (rs.next()) {
-                // Tận dụng hàm mapMonAn để code gọn và không bao giờ sót cột
+                
                 ds.add(mapMonAn(rs));
             }
         } catch (Exception e) {
@@ -169,11 +166,11 @@ public class MonAn_DAO {
         List<MonAnTT> list = new ArrayList<>();
 
         String sql = 
-        		"SELECT m.maMon, m.tenMon, m.hinhAnh, ct.giaBan " +
-        	    "FROM MonAn m " +
-        	    "JOIN ChiTietBangGia ct ON m.maMon = ct.maMon " +
-        	    "JOIN BangGia bg ON bg.maBangGia = ct.maBangGia " +
-        	    "WHERE bg.trangThai = N'Đang áp dụng'";
+                "SELECT m.maMon, m.tenMon, m.hinhAnh, ct.giaBan " +
+                "FROM MonAn m " +
+                "JOIN ChiTietBangGia ct ON m.maMon = ct.maMon " +
+                "JOIN BangGia bg ON bg.maBangGia = ct.maBangGia " +
+                "WHERE bg.trangThai = N'Đang áp dụng'";
 
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -193,5 +190,38 @@ public class MonAn_DAO {
         }
 
         return list;
+    }
+    
+    public MonAn getMonAnById(String maMon) {
+        MonAn monAn = null;
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            con = SQLConnection.getConnection();
+            
+            String sql = "SELECT m.maMon, m.tenMon, g.giaBan " +
+                         "FROM MonAn m " +
+                         "JOIN ChiTietBangGia g ON m.maMon = g.maMon " +
+                         "JOIN BangGia b ON g.maBangGia = b.maBangGia " +
+                         "WHERE m.maMon = ? AND b.trangThai = N'Đang áp dụng'";
+            
+            ps = con.prepareStatement(sql);
+            ps.setString(1, maMon);
+            rs = ps.executeQuery();
+            
+            if (rs.next()) {
+                monAn = new MonAn();
+                monAn.setMaMon(rs.getString("maMon"));
+                // ĐÃ FIX LỖI TẠI ĐÂY: Thay "tenNV" thành "tenMon"
+                monAn.setTenMon(rs.getString("tenMon")); 
+                monAn.setGiaBan(rs.getFloat("giaBan"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try { if (rs != null) rs.close(); if (ps != null) ps.close(); } catch (SQLException e2) {}
+        }
+        return monAn;
     }
 }
