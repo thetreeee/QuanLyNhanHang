@@ -34,11 +34,32 @@ public class SoDoBanPanel_NVPV extends JPanel {
     private String floorFilter = "Tất cả";
 
     private NhanVien nhanVien;
+    private String maNhanVien; // Biến giữ mã nhân viên
 
-    public SoDoBanPanel_NVPV() {
+    // --- ĐÃ SỬA: Ép hàm khởi tạo phải nhận vào maNV ---
+    public SoDoBanPanel_NVPV(String maNV) {
+        this.maNhanVien = maNV;
+        
+        // --- KHỞI TẠO NHÂN VIÊN ĐỂ TRUYỀN CHO FORM GỌI MÓN ---
+     // --- KHỞI TẠO NHÂN VIÊN ĐỂ TRUYỀN CHO FORM GỌI MÓN ---
+        // Sử dụng hàm khởi tạo 2 tham số có sẵn trong class NhanVien của bạn
+        this.nhanVien = new NhanVien(maNV, "Nhân viên Phục vụ");
+
         banDAO = new BanDAO();
         initUI();
         loadData("");
+        
+        // --- ĐÃ THÊM: Tự động làm mới Sơ đồ bàn khi Nhân viên bấm sang tab này ---
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                if (txtSearch != null) {
+                    loadData(txtSearch.getText().trim()); 
+                } else {
+                    loadData("");
+                }
+            }
+        });
     }
 
     private void initUI() {
@@ -105,7 +126,6 @@ public class SoDoBanPanel_NVPV extends JPanel {
             pnlFloorFilter.add(createFloorButton(f));
         }
 
-        // ĐÃ SỬA: Bỏ cụm nút lọc trạng thái, thay bằng chú thích
         JPanel pnlStatus = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         pnlStatus.setOpaque(false);
         JLabel lblNote = new JLabel("(*) Chỉ hiển thị các bàn đang có khách");
@@ -174,7 +194,6 @@ public class SoDoBanPanel_NVPV extends JPanel {
                         || b.getMaBan().toLowerCase().contains(q);
                 })
                 .filter(b -> {
-                    // ĐÃ SỬA: Chốt chặn cuối cùng, chỉ cho phép hiển thị bàn ĐANG DÙNG (màu đỏ)
                     String tt = b.getTrangThai().toLowerCase();
                     return tt.contains("dùng") || tt.contains("vụ") || tt.contains("sử dụng");
                 }).collect(Collectors.toList());
@@ -224,7 +243,6 @@ public class SoDoBanPanel_NVPV extends JPanel {
         card.setPreferredSize(new Dimension(width, 140));
         card.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        // Background cố định là màu đỏ vì chỉ hiển thị bàn đang dùng
         card.setBackground(COLOR_DUNG);
 
         // ===== CENTER =====
@@ -252,6 +270,8 @@ public class SoDoBanPanel_NVPV extends JPanel {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
+                    
+                    // LÚC NÀY BIẾN nhanVien ĐÃ CÓ MÃ, FORM GỌI MÓN SẼ KHÔNG BÁO LỖI NỮA!
                     GoiMonDialog dialog = new GoiMonDialog(
                             SwingUtilities.getWindowAncestor(card),
                             ban, 

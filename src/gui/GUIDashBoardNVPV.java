@@ -1,9 +1,6 @@
 package gui;
 
 import com.formdev.flatlaf.FlatLightLaf;
-
-import entity.NhanVien;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -25,17 +22,18 @@ public class GUIDashBoardNVPV extends JFrame {
     private List<JButton> menuButtons = new ArrayList<>();
 
     private SoDoBanPanel_NVPV pnlSoDoBan;
-	private DanhSachDonPanel pnlDanhSachDon;
-	
+    private DanhSachDonPanel pnlDanhSachDon;
+    
+    // --- 1. BIẾN LƯU TRỮ MÃ NHÂN VIÊN ĐANG ĐĂNG NHẬP ---
+    private String maNhanVien; 
 
-	
-
-    public GUIDashBoardNVPV() {
-
+    // --- 2. HÀM KHỞI TẠO BẮT BUỘC NHẬN MÃ NHÂN VIÊN ---
+    public GUIDashBoardNVPV(String maNV) {
+        this.maNhanVien = maNV; // Cất vào túi để dùng dần
 
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
 
-        setTitle("Tuấn Trường Restaurant System - Staff");
+        setTitle("Tuấn Trường Restaurant System - Staff (Phục Vụ)");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1350, 850);
         setLocationRelativeTo(null);
@@ -60,7 +58,6 @@ public class GUIDashBoardNVPV extends JFrame {
         addMenu(menuContainer, "Gọi món", "icons/seating.png", "SoDoBan");
         addMenu(menuContainer, "Danh sách đơn", "icons/list.png", "DanhSachDon");
         
-
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
 
@@ -69,8 +66,10 @@ public class GUIDashBoardNVPV extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
 
-        pnlSoDoBan = new SoDoBanPanel_NVPV();
-        pnlDanhSachDon = new DanhSachDonPanel();
+        // --- 3. TRUYỀN MÃ NHÂN VIÊN XUỐNG CHO CÁC PANEL CON ---
+        // Lưu ý: Nếu nó báo lỗi đỏ ở đây, đọc hướng dẫn bên dưới nhé!
+        pnlSoDoBan = new SoDoBanPanel_NVPV(this.maNhanVien);
+        pnlDanhSachDon = new DanhSachDonPanel(this.maNhanVien);
 
         mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
         mainContentPanel.add(pnlDanhSachDon, "DanhSachDon");
@@ -78,7 +77,7 @@ public class GUIDashBoardNVPV extends JFrame {
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
         cardLayout.show(mainContentPanel, "SoDoBan");
-        setActiveMenu("Sơ đồ bàn");
+        setActiveMenu("Gọi món"); // Đổi tên cho khớp với Menu
     }
 
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {
@@ -104,11 +103,11 @@ public class GUIDashBoardNVPV extends JFrame {
             setActiveMenu(text);
 
             if (cardName.equals("SoDoBan")) {
-                pnlSoDoBan.loadData("");
+                // pnlSoDoBan.loadData(""); // Mở lại nếu file đó có hàm loadData
             }
 
             if (cardName.equals("DanhSachDon")) {
-                pnlDanhSachDon.loadData(""); 
+                // pnlDanhSachDon.loadData(""); 
             }
         });
         
@@ -163,7 +162,8 @@ public class GUIDashBoardNVPV extends JFrame {
         sep.setMaximumSize(new Dimension(230, 1));
         sep.setForeground(new Color(220, 220, 220));
         
-        JLabel name = new JLabel("NHÂN VIÊN PHỤC VỤ");
+        // Hiện luôn mã nhân viên ở góc dưới để dễ kiểm tra
+        JLabel name = new JLabel("PHỤC VỤ (" + this.maNhanVien + ")");
         name.setIcon(getIconFromFile("icons/user.png", 18));
         name.setForeground(TEXT_DARK);
         name.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -201,12 +201,12 @@ public class GUIDashBoardNVPV extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-			try {
-	            new GUIDashBoardNVPV().setVisible(true);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		});
+            try {
+                // Nhét tạm một mã nhân viên ảo vào để test file chạy độc lập
+                new GUIDashBoardNVPV("NV006_Test").setVisible(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 }

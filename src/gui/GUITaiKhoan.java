@@ -5,7 +5,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.net.URL;
 import dao.taiKhoanDao;
-import entity.NhanVien; // ĐÃ THÊM: Import class NhanVien
 
 public class GUITaiKhoan extends JFrame {
     private JTextField txtUser;
@@ -100,7 +99,8 @@ public class GUITaiKhoan extends JFrame {
         btnLogin.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        getRootPane().setDefaultButton(btnLogin); // Gắn phím Enter
+        // Dòng lệnh giúp gõ Enter là đăng nhập ngay
+        getRootPane().setDefaultButton(btnLogin); 
 
         loginForm.add(lblLogo);
         loginForm.add(Box.createRigidArea(new Dimension(0, 10)));
@@ -134,30 +134,33 @@ public class GUITaiKhoan extends JFrame {
             // --- XỬ LÝ ĐĂNG NHẬP THEO QUYỀN (RBAC) ---
             if (taiKhoanDAO.kiemTraDangNhap(user, pass)) {
                 
-                // ĐÃ THÊM: Ghi nhớ thông tin người dùng đang đăng nhập vào biến static!
-                // Để lúc lập đơn gọi món/đặt bàn, hệ thống biết ai đang thao tác
-                taiKhoanDao.nvDangNhap = new NhanVien(user, "Nhân viên"); 
-                
                 // Lấy chức vụ từ DB
                 String chucVu = taiKhoanDAO.getRole(user, pass);
                 
+                // Xem Tên đăng nhập (user) chính là Mã Nhân Viên (NV003, NV006...)
+                // Nếu hệ thống của bạn đăng nhập bằng SĐT, thì phải gọi thêm hàm DAO để lấy maNV ra nhé!
+                String maNV = user; 
+                
                 if (chucVu != null) {
-                    // ĐIỀU HƯỚNG GIAO DIỆN
+                    // --- ĐIỀU HƯỚNG GIAO DIỆN VÀ TRUYỀN MÃ NHÂN VIÊN ---
                     if (chucVu.equalsIgnoreCase("Quản lý") || chucVu.equalsIgnoreCase("QUANLY")) {
-                        new GUIDashBoard().setVisible(true); // Mở Dashboard Quản lý
+                        // Nếu class GUIDashBoard() có hàm tạo yêu cầu maNV thì sửa thành: new GUIDashBoard(maNV).setVisible(true);
+                        new GUIDashBoard().setVisible(true); 
+                        this.dispose(); 
                     } 
-                    else if (chucVu.equalsIgnoreCase("Nhân viên phục vụ") || chucVu.equalsIgnoreCase("NHANVIENPHUCVU")) {
-                        new GUIDashBoardNVPV().setVisible(true); // Mở Dashboard Nhân viên Phục vụ
+                    else if (chucVu.equalsIgnoreCase("Nhân viên lễ tân")) {
+                        // Nếu class GUIDashBoardNVLT() có hàm tạo yêu cầu maNV thì sửa thành: new GUIDashBoardNVLT(maNV).setVisible(true);
+                        new GUIDashBoardNVLT().setVisible(true); 
+                        this.dispose(); 
                     }
-                    else if (chucVu.equalsIgnoreCase("Nhân viên lễ tân") || chucVu.equalsIgnoreCase("NHANVIENLETAN")) {
-                        new GUIDashBoardNVLT().setVisible(true); // Mở Dashboard Nhân viên Lễ tân
+                    else if (chucVu.equalsIgnoreCase("Nhân viên phục vụ")) {
+                        // Đã nhét maNV vào cửa sổ của Phục vụ để chống lỗi Gọi món!
+                        new GUIDashBoardNVPV(maNV).setVisible(true); 
+                        this.dispose(); 
                     }
                     else {
-                        // Trường hợp các chức vụ khác chưa code xong giao diện (như Thu ngân, v.v...)
-                        JOptionPane.showMessageDialog(this, "Chưa có giao diện cho chức vụ: " + chucVu, "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                        return; // Dừng lại, không đóng form đăng nhập
+                        JOptionPane.showMessageDialog(this, "Chức vụ [" + chucVu + "] chưa được thiết lập giao diện!", "Lỗi hệ thống", JOptionPane.ERROR_MESSAGE);
                     }
-                    this.dispose(); // Đóng form đăng nhập khi vào được dashboard tương ứng
                 } else {
                     JOptionPane.showMessageDialog(this, "Lỗi lấy thông tin phân quyền!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }

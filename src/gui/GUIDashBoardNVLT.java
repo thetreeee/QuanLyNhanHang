@@ -21,8 +21,8 @@ public class GUIDashBoardNVLT extends JFrame {
     private CardLayout cardLayout;
     private List<JButton> menuButtons = new ArrayList<>();
 
-    // ĐÃ XÓA: pnlThucDon và pnlGiaBan, chỉ giữ lại Sơ đồ bàn
     private SoDoBanPanel_NVLT pnlSoDoBan;
+    private DanhSachDatBanPanel pnlDanhSachDatBan; 
 
     public GUIDashBoardNVLT() {
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
@@ -49,8 +49,8 @@ public class GUIDashBoardNVLT extends JFrame {
         
         menuContainer.add(createBrandPanel());
 
-        // ĐÃ XÓA menu Thực đơn và Bảng giá
         addMenu(menuContainer, "Đặt bàn", "icons/seating.png", "SoDoBan");
+        addMenu(menuContainer, "Danh sách đặt bàn", "icons/list.png", "DanhSachDatBan"); 
 
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
@@ -61,14 +61,16 @@ public class GUIDashBoardNVLT extends JFrame {
         mainContentPanel.setOpaque(false);
 
         pnlSoDoBan = new SoDoBanPanel_NVLT();
+        pnlDanhSachDatBan = new DanhSachDatBanPanel(); 
 
         mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
+        mainContentPanel.add(pnlDanhSachDatBan, "DanhSachDatBan"); 
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
-        // Mặc định hiện Sơ đồ bàn
+        // Mặc định hiện Đặt bàn
         cardLayout.show(mainContentPanel, "SoDoBan");
-        setActiveMenu("Sơ đồ bàn");
+        setActiveMenu("Đặt bàn"); 
     }
 
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {
@@ -92,10 +94,7 @@ public class GUIDashBoardNVLT extends JFrame {
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, cardName);
             setActiveMenu(text);
-
-            if (cardName.equals("SoDoBan")) {
-                pnlSoDoBan.loadData(""); 
-            }
+            // ĐÃ XÓA logic gọi pnl.loadData() ở đây để tránh lỗi gạch đỏ
         });
         
         container.add(btn);
@@ -165,7 +164,7 @@ public class GUIDashBoardNVLT extends JFrame {
         btnLogout.addActionListener(e -> {
             if (JOptionPane.showConfirmDialog(this, "Xác nhận đăng xuất?", "Thoát", 0) == 0) {
                 this.dispose(); 
-                new GUITaiKhoan().setVisible(true); // Trở về trang đăng nhập
+                // new GUITaiKhoan().setVisible(true); // Nhớ bỏ comment nếu bạn có màn hình đăng nhập
             }
         });
         
@@ -174,8 +173,6 @@ public class GUIDashBoardNVLT extends JFrame {
         p.add(btnLogout);
         return p;
     }
-
-    // Đã xóa hàm getPnlThucDon() vì không còn dùng tới nữa
 
     private ImageIcon getIconFromFile(String path, int size) {
         File f = new File(path);

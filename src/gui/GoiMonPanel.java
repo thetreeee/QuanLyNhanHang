@@ -3,7 +3,6 @@ package gui;
 import dao.ChiTietDatMon_DAO;
 import dao.DonDatMon_DAO;
 import dao.MonAn_DAO;
-import dao.taiKhoanDao;
 import entity.*;
 
 import javax.swing.*;
@@ -21,6 +20,8 @@ public class GoiMonPanel extends JPanel {
     private static final long serialVersionUID = 1L;
 
     private Ban ban;
+    private NhanVien nv;
+
     private JPanel pnlMenu;
     private JTextField txtSearch;
 
@@ -36,6 +37,8 @@ public class GoiMonPanel extends JPanel {
 
     public GoiMonPanel(Ban ban, NhanVien nv) {
         this.ban = ban;
+        this.nv = nv; 
+        
         setLayout(new BorderLayout(10,10));
         setBorder(BorderFactory.createEmptyBorder(15,15,15,15));
 
@@ -140,9 +143,8 @@ public class GoiMonPanel extends JPanel {
         // ===== RIGHT PANEL =====
         JPanel pnlRight = new JPanel(new BorderLayout());
         
-        // ĐÃ NÂNG CẤP: Lấy mã đơn dự kiến và hiển thị Mã đơn + Mã bàn
-        String maDonDuKien = new DonDatMon_DAO().phatSinhMaDon();
-        JLabel lblOrderHeader = new JLabel("  Mã đơn: " + maDonDuKien + "    |    Mã bàn: " + ban.getMaBan());
+        // ĐÃ SỬA LỖI ĐỎ: Vì mã đơn sinh tự động lúc lưu, nên hiển thị [Tạo tự động]
+        JLabel lblOrderHeader = new JLabel("  Mã đơn: [Tạo tự động]    |    Mã bàn: " + ban.getMaBan());
         lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblOrderHeader.setOpaque(true);
         lblOrderHeader.setBackground(new Color(244, 182, 169)); 
@@ -349,15 +351,12 @@ public class GoiMonPanel extends JPanel {
         DonDatMon_DAO donDAO = new DonDatMon_DAO();
         ChiTietDatMon_DAO ctDAO = new ChiTietDatMon_DAO();
         
-        NhanVien nvHienTai = taiKhoanDao.nvDangNhap; 
-
-        if (nvHienTai == null) {
-            JOptionPane.showMessageDialog(this, "Không tìm thấy nhân viên! Vui lòng đăng nhập lại.");
+        if (this.nv == null || this.nv.getMaNV() == null) {
+            JOptionPane.showMessageDialog(this, "Lỗi mất Session! Không tìm thấy mã nhân viên.");
             return;
         }
 
-        String maNV = nvHienTai.getMaNV();
-
+        String maNV = this.nv.getMaNV();
         String maDon = donDAO.createDon(ban.getMaBan(), maNV ,ghiChu);
 
         for (DonGoiMon d : dsOrder) {

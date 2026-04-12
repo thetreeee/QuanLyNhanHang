@@ -47,4 +47,5 @@ public class DonDatMon {
 
 	public List<ChiTietDatMon> getDsChiTiet() { return dsChiTiet; }
     public void setDsChiTiet(List<ChiTietDatMon> dsChiTiet) { this.dsChiTiet = dsChiTiet; }
+    
 }

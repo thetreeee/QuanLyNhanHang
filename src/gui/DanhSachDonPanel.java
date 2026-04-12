@@ -8,6 +8,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -33,7 +34,11 @@ public class DanhSachDonPanel extends JPanel {
     private JLabel lblTimeDate;
     private Timer timer;
 
-    public DanhSachDonPanel() {
+    private String maNhanVien;
+
+    public DanhSachDonPanel(String maNV) {
+        this.maNhanVien = maNV; 
+
         setLayout(new BorderLayout(0, 20));
         setBackground(BG_WHITE);
         setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -67,7 +72,7 @@ public class DanhSachDonPanel extends JPanel {
         titlePanel.setOpaque(false);
         
         topWrapper.add(Box.createVerticalStrut(15));
-        JLabel lblTitle = new JLabel("DANH SÁCH ĐƠN GỌI MÓN");
+        JLabel lblTitle = new JLabel("DANH SÁCH ĐƠN GỌI MÓN HÔM NAY"); 
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_DARK);
 
@@ -78,7 +83,7 @@ public class DanhSachDonPanel extends JPanel {
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         searchPanel.setOpaque(false);
 
-        searchPanel.add(new JLabel("Tìm theo mã bàn (Nhấn Enter):"));
+        searchPanel.add(new JLabel("Tìm theo mã bàn:"));
 
         txtSearch = new JTextField(20);
         txtSearch.setPreferredSize(new Dimension(250, 35));
@@ -102,13 +107,11 @@ public class DanhSachDonPanel extends JPanel {
         add(topWrapper, BorderLayout.NORTH);
 
         // ===== TABLE =====
-        // ĐÃ SỬA: Đổi vị trí "Mã Bàn" lên sát "Mã đơn"
         model = new DefaultTableModel(
                 new String[]{"", "Mã đơn", "Mã Bàn", "Thời gian", "Ghi chú", "Mã Nhân Viên"}, 0
         ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                // Chỉ cho phép thao tác click trên cột "x" (Cột số 0)
                 return column == 0; 
             }
         };
@@ -116,7 +119,6 @@ public class DanhSachDonPanel extends JPanel {
         table = new JTable(model);
         setupTableStyle();
 
-        // Gắn giao diện chữ x màu đỏ vào cột 0
         table.getColumnModel().getColumn(0).setCellRenderer(new ButtonRenderer());
         table.getColumnModel().getColumn(0).setCellEditor(new ButtonEditor(new JCheckBox()));
 
@@ -128,12 +130,21 @@ public class DanhSachDonPanel extends JPanel {
         // ===== DOUBLE CLICK XEM CHI TIẾT =====
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                // Đảm bảo không bấm đúp vào cột chứa dấu x
                 if (e.getClickCount() == 2 && table.getSelectedColumn() != 0) {
                     int row = table.getSelectedRow();
-                    // Mã đơn nằm ở cột số 1
                     String maDon = model.getValueAt(row, 1).toString();
                     showDetail(maDon);
+                }
+            }
+        });
+
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                if (txtSearch != null) {
+                    loadData(txtSearch.getText().trim()); 
+                } else {
+                    loadData("");
                 }
             }
         });
@@ -150,21 +161,35 @@ public class DanhSachDonPanel extends JPanel {
             e.printStackTrace();
         }
 
+        LocalDate homNay = LocalDate.now();
+
         for (DonDatMon d : ds) {
-            if (!keyword.isEmpty() && !d.getMaBan().toLowerCase().contains(keyword.toLowerCase())) {
+            
+            // --- LỌC ĐƠN HÔM NAY ---
+            LocalDate ngayCuaDon = d.getThoiGianDat().toLocalDate();
+            if (!ngayCuaDon.equals(homNay)) {
+                continue;
+            }
+
+            // --- NÂNG CẤP LỌC TÌM KIẾM: QUÉT CẢ MÃ BÀN VÀ GHI CHÚ ---
+            String maBan = d.getMaBan() != null ? d.getMaBan().toLowerCase() : "";
+            String ghiChu = (d.getGhiChu() != null) ? d.getGhiChu().toLowerCase() : "";
+            String key = keyword.toLowerCase();
+
+            // Nếu ô tìm kiếm có chữ, VÀ chữ đó KHÔNG NẰM TRONG Mã Bàn, VÀ CŨNG KHÔNG NẰM TRONG Ghi Chú -> Bỏ qua
+            if (!keyword.isEmpty() && !maBan.contains(key) && !ghiChu.contains(key)) {
                 continue;
             }
 
             String ngayDinhDang = d.getThoiGianDat().format(dtf);
             
-            // ĐÃ SỬA: Thay đổi vị trí dữ liệu đổ vào bảng cho khớp với Header
             model.addRow(new Object[]{
-                    "x", // Ký tự hiển thị trên nút xóa (Cột 0)
-                    d.getMaDonDat(), // Mã đơn (Cột 1)
-                    d.getMaBan(), // Mã Bàn (Cột 2) - ĐÃ CHUYỂN LÊN ĐÂY
-                    ngayDinhDang, // Thời gian (Cột 3)
-                    d.getGhiChu(), // Ghi chú (Cột 4)
-                    d.getMaNV() // Mã Nhân Viên (Cột 5)
+                    "x", 
+                    d.getMaDonDat(), 
+                    d.getMaBan(), 
+                    ngayDinhDang, 
+                    d.getGhiChu(), 
+                    d.getMaNV() 
             });
         }
     }
@@ -187,7 +212,6 @@ public class DanhSachDonPanel extends JPanel {
         table.setSelectionBackground(new Color(232, 240, 254));
         table.setSelectionForeground(Color.BLACK);
         
-        // Thu hẹp cột chứa dấu "x" lại cho sát với Mã đơn
         table.getColumnModel().getColumn(0).setMaxWidth(35);
         table.getColumnModel().getColumn(0).setMinWidth(35);
 
@@ -200,7 +224,6 @@ public class DanhSachDonPanel extends JPanel {
         DefaultTableCellRenderer center = new DefaultTableCellRenderer();
         center.setHorizontalAlignment(JLabel.CENTER);
 
-        // Căn giữa cho các cột chữ (từ cột 1 đến cột 5)
         for (int i = 1; i < 6; i++) {
             table.getColumnModel().getColumn(i).setCellRenderer(center);
         }
@@ -220,7 +243,7 @@ public class DanhSachDonPanel extends JPanel {
     }
 
     // =========================================================================
-    // LỚP HỖ TRỢ VẼ CHỮ "x" ĐỎ ĐỂ XÓA (STYLE TINH TẾ)
+    // LỚP HỖ TRỢ VẼ CHỮ "x" ĐỎ ĐỂ XÓA 
     // =========================================================================
     class ButtonRenderer extends JButton implements TableCellRenderer {
         public ButtonRenderer() {
@@ -258,10 +281,8 @@ public class DanhSachDonPanel extends JPanel {
             
             button.addActionListener(e -> {
                 fireEditingStopped();
-                // Lấy mã đơn hàng của dòng đang bấm (Mã đơn vẫn ở cột 1)
                 String maDon = table.getValueAt(selectedRow, 1).toString();
                 
-                // Hỏi xác nhận
                 int confirm = JOptionPane.showConfirmDialog(null, 
                         "Bạn có chắc chắn muốn hủy đơn hàng: " + maDon + "?", 
                         "Xác nhận hủy đơn", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
