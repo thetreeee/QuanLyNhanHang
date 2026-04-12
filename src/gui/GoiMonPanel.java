@@ -143,7 +143,6 @@ public class GoiMonPanel extends JPanel {
         // ===== RIGHT PANEL =====
         JPanel pnlRight = new JPanel(new BorderLayout());
         
-        // ĐÃ SỬA LỖI ĐỎ: Vì mã đơn sinh tự động lúc lưu, nên hiển thị [Tạo tự động]
         JLabel lblOrderHeader = new JLabel("  Mã đơn: [Tạo tự động]    |    Mã bàn: " + ban.getMaBan());
         lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblOrderHeader.setOpaque(true);
@@ -206,8 +205,16 @@ public class GoiMonPanel extends JPanel {
         JPanel card = new JPanel(new BorderLayout());
         card.setPreferredSize(new Dimension(145, 170));
         card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        card.setBackground(Color.WHITE);
+
+        // --- ĐÃ SỬA: Gộp thành 1 dòng duy nhất và thêm chữ 'final' ---
+        final boolean isTamNgung = (m.getTrangThai() != null && m.getTrangThai().equalsIgnoreCase("Tạm ngưng"));
+
+        if (isTamNgung) {
+            card.setBackground(new Color(240, 240, 240)); 
+        } else {
+            card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            card.setBackground(Color.WHITE);
+        }
 
         JLabel lblImg = new JLabel("", SwingConstants.CENTER);
 
@@ -228,11 +235,21 @@ public class GoiMonPanel extends JPanel {
         JLabel lblName = new JLabel(m.getTenMon(), SwingConstants.CENTER);
         lblName.setFont(new Font("Segoe UI", Font.BOLD, 13));
 
-        JLabel lblPrice = new JLabel(formatPrice(m.getGiaBan()), SwingConstants.CENTER);
-        lblPrice.setForeground(new Color(220,50,50));
+        JLabel lblPrice = new JLabel("", SwingConstants.CENTER);
+        
+        if (isTamNgung) {
+            lblPrice.setText("Tạm ngưng");
+            lblPrice.setForeground(Color.RED);
+            lblPrice.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            lblName.setForeground(Color.GRAY); 
+            lblImg.setEnabled(false); 
+        } else {
+            lblPrice.setText(formatPrice(m.getGiaBan()));
+            lblPrice.setForeground(new Color(220,50,50));
+        }
 
         JPanel pnlBottom = new JPanel(new GridLayout(2,1));
-        pnlBottom.setBackground(Color.WHITE);
+        pnlBottom.setBackground(isTamNgung ? new Color(240, 240, 240) : Color.WHITE);
         pnlBottom.add(lblName);
         pnlBottom.add(lblPrice);
 
@@ -241,6 +258,10 @@ public class GoiMonPanel extends JPanel {
 
         card.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (isTamNgung) {
+                    JOptionPane.showMessageDialog(card, "Món này hiện đang tạm ngưng phục vụ (Hết nguyên liệu)!", "Hết hàng", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
                 addMon(m);
             }
         });
