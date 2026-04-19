@@ -10,11 +10,9 @@ public class DonDatMon_DAO {
 
     public List<DonDatMon> getAll() {
         List<DonDatMon> list = new ArrayList<>();
-        try {
-            Connection con = SQLConnection.getConnection();
-            String sql = "SELECT * FROM DonDatMon ORDER BY thoiGianDat DESC";
-            Statement st = con.createStatement();
-            ResultSet rs = st.executeQuery(sql);
+        try (Connection con = SQLConnection.getConnection();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery("SELECT * FROM DonDatMon ORDER BY thoiGianDat DESC")) {
             while (rs.next()) {
                 DonDatMon d = new DonDatMon(
                         rs.getString("maDonDat"),
@@ -30,37 +28,33 @@ public class DonDatMon_DAO {
     }
     
     public DonDatMon getDonDangMoTheoBan(String maBan) {
-        try {
-            Connection con = SQLConnection.getConnection();
-            // Lấy đơn mới nhất của bàn đó
-            String sql = "SELECT * FROM DonDatMon WHERE maBan = ? ORDER BY thoiGianDat DESC";
-            PreparedStatement ps = con.prepareStatement(sql);
+        String sql = "SELECT TOP 1 * FROM DonDatMon WHERE maBan = ? ORDER BY thoiGianDat DESC";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return new DonDatMon(
-                    rs.getString("maDonDat"),
-                    rs.getTimestamp("thoiGianDat").toLocalDateTime(),
-                    rs.getString("ghiChu"),
-                    rs.getString("maNV"),
-                    rs.getString("maBan")
-                );
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new DonDatMon(
+                        rs.getString("maDonDat"),
+                        rs.getTimestamp("thoiGianDat").toLocalDateTime(),
+                        rs.getString("ghiChu"),
+                        rs.getString("maNV"),
+                        rs.getString("maBan")
+                    );
+                }
             }
         } catch (Exception e) { e.printStackTrace(); }
         return null;
     }
     
-    // --- HÀM TẠO MÃ ĐƠN ĐẸP (D001, D002...) ---
     public String phatSinhMaDon() {
         int max = 0;
-        try {
-            Connection con = SQLConnection.getConnection();
-            String sql = "SELECT maDonDat FROM DonDatMon WHERE maDonDat LIKE 'D%'";
-            Statement st = con.createStatement();
-            ResultSet rs = st.executeQuery(sql);
+        String sql = "SELECT maDonDat FROM DonDatMon WHERE maDonDat LIKE 'D%'";
+        try (Connection con = SQLConnection.getConnection();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 String ma = rs.getString("maDonDat");
-                // Thông minh: Chỉ đếm các mã ngắn (D004), bỏ qua các mã rác do System.currentTimeMillis tạo ra
                 if (ma.length() <= 6) {
                     try {
                         int so = Integer.parseInt(ma.substring(1));
@@ -73,12 +67,10 @@ public class DonDatMon_DAO {
     }
     
     public String createDon(String maBan, String maNV, String ghiChu) {
-        // Sử dụng hàm tạo mã đẹp thay vì lấy thời gian thực
         String maDon = phatSinhMaDon();
-        try {
-            Connection con = SQLConnection.getConnection();
-            String sql = "INSERT INTO DonDatMon(maDonDat, thoiGianDat, ghiChu, maNV, maBan) VALUES (?, ?, ?, ?, ?)";
-            PreparedStatement ps = con.prepareStatement(sql);
+        String sql = "INSERT INTO DonDatMon(maDonDat, thoiGianDat, ghiChu, maNV, maBan) VALUES (?, ?, ?, ?, ?)";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maDon);
             ps.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now())); 
             ps.setString(3, ghiChu);
@@ -94,25 +86,25 @@ public class DonDatMon_DAO {
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maDon);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                DonDatMon d = new DonDatMon();
-                d.setMaDonDat(rs.getString("maDonDat"));
-                d.setThoiGianDat(rs.getTimestamp("thoiGianDat").toLocalDateTime());
-                d.setGhiChu(rs.getString("ghiChu"));
-                d.setMaNV(rs.getString("maNV"));
-                d.setMaBan(rs.getString("maBan"));
-                return d;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    DonDatMon d = new DonDatMon();
+                    d.setMaDonDat(rs.getString("maDonDat"));
+                    d.setThoiGianDat(rs.getTimestamp("thoiGianDat").toLocalDateTime());
+                    d.setGhiChu(rs.getString("ghiChu"));
+                    d.setMaNV(rs.getString("maNV"));
+                    d.setMaBan(rs.getString("maBan"));
+                    return d;
+                }
             }
         } catch (Exception e) { e.printStackTrace(); }
         return null;
     }
    
     public boolean updateGhiChu(String maDon, String ghiChu) {
-        try {
-            Connection con = SQLConnection.getConnection();
-            String sql = "UPDATE DonDatMon SET ghiChu = ? WHERE maDonDat = ?";
-            PreparedStatement ps = con.prepareStatement(sql);
+        String sql = "UPDATE DonDatMon SET ghiChu = ? WHERE maDonDat = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, ghiChu);
             ps.setString(2, maDon);
             return ps.executeUpdate() > 0;
@@ -121,99 +113,88 @@ public class DonDatMon_DAO {
     }
 
     public boolean xoaDon(String maDon) {
-        try {
-            Connection con = SQLConnection.getConnection();
-            String sql = "DELETE FROM DonDatMon WHERE maDonDat = ?";
-            PreparedStatement ps = con.prepareStatement(sql);
+        String sql = "DELETE FROM DonDatMon WHERE maDonDat = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maDon);
             return ps.executeUpdate() > 0;
         } catch (Exception e) { e.printStackTrace(); return false; }
     }
 
-    // --- HÀM GỘP ĐƠN ĐÃ FIX LỖI TRÙNG MÓN VÀ LỖI PRIMARY KEY ---
- // ==============================================================
-    // HÀM GỘP ĐƠN ĐẶT MÓN (CẬP NHẬT TỰ ĐỘNG GHI CHÚ)
+    // ==============================================================
+    // HÀM GỘP ĐƠN SIÊU TỐI ƯU (ĐỔI CHỦ SỞ HỮU HÓA ĐƠN)
     // ==============================================================
     public boolean gopDonDatMon(String maBanChinh, List<String> listBanPhu) {
-        Connection con = null; 
-        PreparedStatement stmt = null;
-        ResultSet rs = null;
+        try (Connection con = SQLConnection.getConnection()) {
+            if (listBanPhu == null || listBanPhu.isEmpty()) return true;
 
-        try {
-            con = SQLConnection.getConnection(); 
-            
-            // Tìm Mã Đơn của bàn (lấy đơn mới nhất của bàn đó)
-            String sqlFind = "SELECT TOP 1 maDonDat FROM DonDatMon WHERE maBan = ? ORDER BY thoiGianDat DESC";
-
-            stmt = con.prepareStatement(sqlFind);
-            stmt.setString(1, maBanChinh);
-            rs = stmt.executeQuery();
-            
-            String maDonChinh = null;
-            if (rs.next()) {
-                maDonChinh = rs.getString("maDonDat");
+            // Bước 1: Sang tên đổi chủ. Đổi "maBan" của TẤT CẢ các phiếu thuộc các Bàn Phụ thành Bàn Chính.
+            StringBuilder inClause = new StringBuilder();
+            for (int i = 0; i < listBanPhu.size(); i++) {
+                inClause.append("'").append(listBanPhu.get(i).toUpperCase()).append("'");
+                if (i < listBanPhu.size() - 1) inClause.append(",");
             }
 
-            for (String banPhu : listBanPhu) {
-                stmt = con.prepareStatement(sqlFind);
-                stmt.setString(1, banPhu);
-                rs = stmt.executeQuery();
-                
-                if (rs.next()) {
-                    String maDonPhu = rs.getString("maDonDat");
+            String sqlUpdateMaBan = "UPDATE DonDatMon SET maBan = ? WHERE maBan IN (" + inClause.toString() + ")";
+            try (PreparedStatement psUpdate = con.prepareStatement(sqlUpdateMaBan)) {
+                psUpdate.setString(1, maBanChinh);
+                psUpdate.executeUpdate();
+            }
 
-                    if (maDonChinh == null) {
-                        String updateDonToMain = "UPDATE DonDatMon SET maBan = ? WHERE maDonDat = ?";
-                        stmt = con.prepareStatement(updateDonToMain);
-                        stmt.setString(1, maBanChinh);
-                        stmt.setString(2, maDonPhu);
-                        stmt.executeUpdate();
-                        maDonChinh = maDonPhu; 
-                    } else {
-                        // 1. Cộng dồn số lượng
-                        String addQty = "UPDATE t1 SET t1.soLuong = t1.soLuong + t2.soLuong " +
-                                        "FROM ChiTietDatMon t1 INNER JOIN ChiTietDatMon t2 ON t1.maMon = t2.maMon " +
-                                        "WHERE t1.maDonDat = ? AND t2.maDonDat = ?";
-                        stmt = con.prepareStatement(addQty);
-                        stmt.setString(1, maDonChinh); stmt.setString(2, maDonPhu);
-                        stmt.executeUpdate();
-
-                        // 2. Xóa món trùng
-                        String delDup = "DELETE FROM ChiTietDatMon WHERE maDonDat = ? AND maMon IN (SELECT maMon FROM ChiTietDatMon WHERE maDonDat = ?)";
-                        stmt = con.prepareStatement(delDup);
-                        stmt.setString(1, maDonPhu); stmt.setString(2, maDonChinh);
-                        stmt.executeUpdate();
-
-                        // 3. Đẩy món sang bàn chính
-                        String moveItems = "UPDATE ChiTietDatMon SET maDonDat = ? WHERE maDonDat = ?";
-                        stmt = con.prepareStatement(moveItems);
-                        stmt.setString(1, maDonChinh); stmt.setString(2, maDonPhu);
-                        stmt.executeUpdate();
+            // Bước 2: Cập nhật dòng chữ (Gồm: ...) vào phiếu mới nhất của Bàn Chính để khu vực Bếp dễ nhìn
+            String sqlFind = "SELECT TOP 1 maDonDat, ghiChu FROM DonDatMon WHERE maBan = ? ORDER BY thoiGianDat DESC";
+            try (PreparedStatement psFind = con.prepareStatement(sqlFind)) {
+                psFind.setString(1, maBanChinh);
+                try (ResultSet rs = psFind.executeQuery()) {
+                    if (rs.next()) {
+                        String maDon = rs.getString("maDonDat");
+                        String noteCu = rs.getString("ghiChu");
+                        if (noteCu == null) noteCu = "";
                         
-                        // 4. Xóa phiếu phụ
-                        String deleteDonPhu = "DELETE FROM DonDatMon WHERE maDonDat = ?";
-                        stmt = con.prepareStatement(deleteDonPhu);
-                        stmt.setString(1, maDonPhu);
-                        stmt.executeUpdate();
+                        // Lọc bỏ rác "(Gồm:...)" cũ
+                        noteCu = noteCu.replaceAll("\\(Gồm:[^)]+\\)", "").trim();
+                        String strGop = "(Gồm: " + String.join(", ", listBanPhu) + ")";
+                        String newNote = noteCu.isEmpty() ? strGop : noteCu + " " + strGop;
+                        
+                        // Ghi đè ghi chú mới
+                        try (PreparedStatement psNote = con.prepareStatement("UPDATE DonDatMon SET ghiChu = ? WHERE maDonDat = ?")) {
+                            psNote.setString(1, newNote);
+                            psNote.setString(2, maDon);
+                            psNote.executeUpdate();
+                        }
                     }
                 }
             }
-
-            // --- ĐÃ THÊM: TỰ ĐỘNG GHI CHÚ CÁC BÀN VỪA GỘP VÀO ĐƠN CHÍNH ---
-            if (maDonChinh != null && !listBanPhu.isEmpty()) {
-                String strGop = " (Gồm: " + String.join(", ", listBanPhu) + ")";
-                // Cấu trúc ISNULL giúp: Nếu ghi chú rỗng thì thêm mới, nếu đã có chữ thì nối tiếp vào đuôi
-                String sqlNote = "UPDATE DonDatMon SET ghiChu = ISNULL(ghiChu, '') + ? WHERE maDonDat = ?";
-                stmt = con.prepareStatement(sqlNote);
-                stmt.setString(1, strGop);
-                stmt.setString(2, maDonChinh);
-                stmt.executeUpdate();
-            }
-
+            
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    // HÀM CHUYỂN BÀN (CẬP NHẬT TRONG ĐƠN ĐẶT MÓN)
+    // ==============================================================
+    // Hàm này sẽ tìm Phiếu gọi món MỚI NHẤT của bàn cũ và đổi nó sang bàn mới
+ // ==============================================================
+    // HÀM CHUYỂN BÀN (DỜI TOÀN BỘ ĐƠN HÀNG CỦA BÀN CŨ)
+    // ==============================================================
+    public boolean chuyenBan(String maBanCu, String maBanMoi) {
+        // SQL: Quét toàn bộ các đơn đang gắn với bàn cũ và đổi thành mã bàn mới
+        String sql = "UPDATE DonDatMon SET maBan = ? WHERE maBan = ?"; 
+        
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setString(1, maBanMoi); // Bàn đích đến
+            ps.setString(2, maBanCu);  // Bàn cũ đang ngồi
+            
+            int n = ps.executeUpdate();
+            return n > 0; // Trả về true nếu có ít nhất 1 đơn đặt món được chuyển
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }

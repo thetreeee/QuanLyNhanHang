@@ -36,11 +36,9 @@ public class DialogThemSuaBan extends JDialog {
 
         initUI();
         
-        // ĐẢO THỨ TỰ: Đổ dữ liệu trước rồi mới cài đặt Listener
         loadData();
         setupListeners();
         
-        // Lần đầu chạy form -> set false để KHÔNG hiện chữ đỏ
         validateRealTime(false); 
     }
 
@@ -176,7 +174,6 @@ public class DialogThemSuaBan extends JDialog {
     }
 
     private void setupListeners() {
-        // DocumentListener: Lắng nghe khi người dùng gõ phím
         DocumentListener docListener = new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { validateRealTime(true); }
             @Override public void removeUpdate(DocumentEvent e) { validateRealTime(true); }
@@ -186,7 +183,6 @@ public class DialogThemSuaBan extends JDialog {
         txtTenBan.getDocument().addDocumentListener(docListener);
         txtSoGhe.getDocument().addDocumentListener(docListener);
 
-        // FocusListener: Lắng nghe khi người dùng click vào ô rồi click ra chỗ khác
         txtTenBan.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
@@ -234,7 +230,7 @@ public class DialogThemSuaBan extends JDialog {
             }
         }
 
-        btnLuu.setEnabled(hopLe); // Vẫn khóa nút Lưu như bình thường
+        btnLuu.setEnabled(hopLe); 
     }
 
     private void luuDuLieu() {
@@ -243,11 +239,19 @@ public class DialogThemSuaBan extends JDialog {
             String tenBan = txtTenBan.getText().trim();
             int soGhe = Integer.parseInt(txtSoGhe.getText().trim());
             
-            // CẬP NHẬT: Nếu là thêm mới -> Ép mặc định là "Trống". Nếu sửa -> Lấy từ ComboBox
             String trangThai = (banHienTai == null) ? "Trống" : cbTrangThai.getSelectedItem().toString();
             String viTri = cbViTri.getSelectedItem().toString();
 
-            Ban banMoi = new Ban(maBan, tenBan, soGhe, trangThai, viTri);
+            // ĐÃ CẬP NHẬT: Xử lý bảo toàn mã khối khi Thêm mới / Cập nhật
+            Integer maKhoi = null;
+            String maBanChinh = null;
+            
+            if (banHienTai != null) { // Nếu đang sửa bàn, lấy lại thông tin khối cũ để bảo toàn
+                maKhoi = banHienTai.getMaKhoi();
+                maBanChinh = banHienTai.getMaBanChinh();
+            }
+
+            Ban banMoi = new Ban(maBan, tenBan, soGhe, trangThai, viTri, maKhoi, maBanChinh);
 
             if (banHienTai == null) {
                 if (banDAO.insertBan(banMoi)) {

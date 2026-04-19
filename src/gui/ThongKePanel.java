@@ -1,210 +1,336 @@
 package gui;
 
+import dao.ThongKeDAO;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.text.DecimalFormat;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ThongKePanel extends JPanel {
 
-    private final Color BG_COLOR = new Color(240, 242, 245);
-    private final Color BLUE_ACCENT = new Color(54, 92, 245);
+    private final Color BG_COLOR = new Color(245, 245, 245);
     private final Color TEXT_DARK = new Color(44, 56, 74);
-    private final Color GREEN_SOFT = new Color(46, 204, 113);
-    private final Color RED_SOFT = new Color(231, 76, 60);
+    private final Color RED_ACCENT = new Color(225, 75, 50); 
+    private final Color GREEN_ACCENT = new Color(46, 204, 113);
+
+    private ThongKeDAO thongKeDAO;
+    private DecimalFormat df = new DecimalFormat("#,### VNĐ");
+    
+    // Đưa mainContainer ra ngoài để loadData() có thể gọi tới
+    private ScrollablePanel mainContainer;
 
     public ThongKePanel() {
-        setLayout(new BorderLayout(20, 20));
+        thongKeDAO = new ThongKeDAO();
+        
+        setLayout(new BorderLayout());
         setBackground(BG_COLOR);
-        setBorder(new EmptyBorder(25, 30, 25, 30));
 
-        // --- 1. HEADER AREA: Bộ lọc thời gian ---
-        JPanel topFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        topFilter.setOpaque(false);
-        topFilter.add(new JLabel("Từ ngày:"));
-        topFilter.add(new JTextField("18/03/2026", 8));
-        topFilter.add(new JLabel("Đến ngày:"));
-        topFilter.add(new JTextField("22/03/2026", 8));
-        JButton btnView = new JButton("Xem thống kê");
-        btnView.setBackground(BLUE_ACCENT);
-        btnView.setForeground(Color.WHITE);
-        topFilter.add(btnView);
-        add(topFilter, BorderLayout.NORTH);
+        mainContainer = new ScrollablePanel();
+        mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
+        mainContainer.setOpaque(false);
+        mainContainer.setBorder(new EmptyBorder(30, 40, 30, 40)); 
 
-        // --- 2. CENTER AREA: Chia làm 2 cột chính ---
-        JPanel centerContainer = new JPanel(new GridLayout(2, 2, 25, 25));
-        centerContainer.setOpaque(false);
+        JScrollPane scroll = new JScrollPane(mainContainer);
+        scroll.setBorder(null);
+        scroll.setViewportBorder(null);
+        scroll.getViewport().setBackground(BG_COLOR);
+        scroll.getVerticalScrollBar().setUnitIncrement(20);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        add(scroll, BorderLayout.CENTER);
 
-        // A. Biểu đồ doanh thu (Góc trên trái)
-        centerContainer.add(createChartPanel("Thống kê Doanh thu", "Doanh thu"));
-
-        // B. Hoạt động hiện tại - Real-time (Góc trên phải)
-        centerContainer.add(createRealTimePanel());
-
-        // C. Xu hướng món ăn (Góc dưới trái)
-        centerContainer.add(createTrendPanel());
-
-        // D. Top nhân viên chăm chỉ (Góc dưới phải)
-        centerContainer.add(createTopStaffPanel());
-
-        add(centerContainer, BorderLayout.CENTER);
+        // =========================================================================
+        // GIẢI PHÁP REFRESH: Cứ mỗi lần Tab này hiện lên là vẽ lại toàn bộ dữ liệu
+        // =========================================================================
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                loadData();
+            }
+        });
+        
+        // Gọi lần đầu tiên khi mở app
+        loadData();
     }
 
-    // --- PANEL BIỂU ĐỒ ---
-    private JPanel createChartPanel(String title, String unit) {
-        JPanel p = new ModernPanel();
-        p.setLayout(new BorderLayout());
-        p.setBorder(new EmptyBorder(20, 20, 20, 20));
+    // Hàm loadData sẽ "đập đi xây lại" giao diện với dữ liệu MỚI NHẤT từ Database
+    public void loadData() {
+        mainContainer.removeAll(); // Xóa sạch giao diện cũ
+
+        // --- TITLE ---
+        JLabel lblTitle = new JLabel("TỔNG QUAN");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitle.setForeground(TEXT_DARK);
+        lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        mainContainer.add(lblTitle);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // --- ROW 1: CARDS TỔNG QUAN ---
+        JPanel pnlCards = new JPanel(new GridLayout(1, 2, 30, 0));
+        pnlCards.setOpaque(false);
+        pnlCards.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150)); 
+        pnlCards.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        double doanhThuNay = thongKeDAO.getDoanhThuHomNay();
+        pnlCards.add(createOverviewCard("Doanh thu hôm nay", df.format(doanhThuNay), RED_ACCENT));
+
+        int[] banData = thongKeDAO.getThongKeBan();
+        String banText = banData[0] + "/" + banData[1];
+        pnlCards.add(createOverviewCard("Số bàn đang phục vụ", banText, TEXT_DARK));
+
+        mainContainer.add(pnlCards);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // --- ROW 2: BIỂU ĐỒ DOANH THU ---
+        JPanel pnlChart = createChartPanel();
+        pnlChart.setAlignmentX(Component.LEFT_ALIGNMENT);
+        mainContainer.add(pnlChart);
+        mainContainer.add(Box.createRigidArea(new Dimension(0, 30)));
+
+        // --- ROW 3: TOP MÓN ĂN ---
+        JPanel pnlTopItem = createTopItemPanel();
+        pnlTopItem.setAlignmentX(Component.LEFT_ALIGNMENT);
+        mainContainer.add(pnlTopItem);
+
+        // Cập nhật lại màn hình
+        mainContainer.revalidate();
+        mainContainer.repaint();
+    }
+
+    private JPanel createOverviewCard(String title, String value, Color valueColor) {
+        JPanel card = new ModernPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBorder(new EmptyBorder(25, 30, 25, 30));
 
         JLabel lblTitle = new JLabel(title);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        p.add(lblTitle, BorderLayout.NORTH);
+        lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        lblTitle.setForeground(Color.GRAY);
 
-        // Giả lập vẽ biểu đồ bằng một Panel ẩn
-        JPanel chartArea = new JPanel() {
+        JLabel lblValue = new JLabel(value);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        lblValue.setForeground(valueColor);
+
+        card.add(lblTitle);
+        card.add(Box.createRigidArea(new Dimension(0, 10)));
+        card.add(lblValue);
+        return card;
+    }
+
+    private JPanel createChartPanel() {
+        JPanel card = new ModernPanel();
+        card.setLayout(new BorderLayout());
+        card.setBorder(new EmptyBorder(25, 30, 25, 30));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 350));
+        card.setPreferredSize(new Dimension(800, 350));
+
+        JLabel lblTitle = new JLabel("Thống kê doanh thu (7 ngày qua)");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        card.add(lblTitle, BorderLayout.NORTH);
+
+        Map<String, Double> chartData = thongKeDAO.getDoanhThu7NgayQua();
+
+        JPanel chartDrawArea = new JPanel() {
+            // Biến dùng cho hiệu ứng Hover
+            private int hoverIndex = -1;
+            private List<Point> pointCoords = new ArrayList<>();
+            private List<Double> valuesList = new ArrayList<>();
+
+            {
+                // ===============================================================
+                // TÍNH NĂNG MỚI: Bắt sự kiện rê chuột để hiện Tooltip doanh thu
+                // ===============================================================
+                addMouseMotionListener(new MouseAdapter() {
+                    @Override
+                    public void mouseMoved(MouseEvent e) {
+                        int oldIndex = hoverIndex;
+                        hoverIndex = -1;
+                        for (int i = 0; i < pointCoords.size(); i++) {
+                            // Nếu chuột nằm trong bán kính 15px của điểm nào đó
+                            if (pointCoords.get(i).distance(e.getPoint()) <= 15) {
+                                hoverIndex = i;
+                                break;
+                            }
+                        }
+                        if (oldIndex != hoverIndex) repaint(); // Chỉ vẽ lại khi chuyển mục tiêu
+                    }
+                });
+
+                // Khi chuột rời khỏi biểu đồ thì tắt tooltip
+                addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseExited(MouseEvent e) {
+                        hoverIndex = -1;
+                        repaint();
+                    }
+                });
+            }
+
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                if (chartData == null || chartData.isEmpty()) return;
+
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(BLUE_ACCENT);
-                g2.setStroke(new BasicStroke(3));
-                // Vẽ đường zigzag mô phỏng biểu đồ hình 1
-                int[] x = {50, 100, 150, 200, 250, 300, 350, 400};
-                int[] y = {150, 140, 145, 130, 155, 120, 40, 130};
-                g2.drawPolyline(x, y, x.length);
-                for(int i=0; i<x.length; i++) g2.fillOval(x[i]-4, y[i]-4, 8, 8);
+
+                int w = getWidth(); 
+                int h = getHeight();
+                int padding = 40;
+
+                double maxVal = 0;
+                for (Double val : chartData.values()) if (val > maxVal) maxVal = val;
+                if (maxVal == 0) maxVal = 1;
+
+                int n = chartData.size();
+                int xStep = (w - 2 * padding) / Math.max(1, n - 1);
+
+                pointCoords.clear();
+                valuesList.clear();
+                List<String> labels = new ArrayList<>(chartData.keySet());
+
+                int i = 0;
+                for (Double val : chartData.values()) {
+                    int x = padding + i * xStep;
+                    int y = h - padding - (int) ((val / maxVal) * (h - 2 * padding));
+                    pointCoords.add(new Point(x, y));
+                    valuesList.add(val);
+                    
+                    g2.setColor(Color.GRAY);
+                    g2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                    g2.drawString(labels.get(i), x - 15, h - 10);
+                    i++;
+                }
+
+                Polygon p = new Polygon();
+                p.addPoint(pointCoords.get(0).x, h - padding);
+                for (int j = 0; j < n; j++) p.addPoint(pointCoords.get(j).x, pointCoords.get(j).y);
+                p.addPoint(pointCoords.get(n - 1).x, h - padding);
+                
+                g2.setColor(new Color(225, 75, 50, 40)); 
+                g2.fillPolygon(p);
+
+                g2.setColor(RED_ACCENT);
+                g2.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                for (int j = 0; j < n - 1; j++) {
+                    g2.drawLine(pointCoords.get(j).x, pointCoords.get(j).y, pointCoords.get(j + 1).x, pointCoords.get(j + 1).y);
+                }
+
+                for (int j = 0; j < n; j++) {
+                    // Nếu đang hover vào điểm này thì cho điểm đó to lên một chút
+                    int radius = (j == hoverIndex) ? 14 : 10;
+                    int offset = radius / 2;
+                    
+                    g2.setColor(Color.WHITE);
+                    g2.fillOval(pointCoords.get(j).x - offset, pointCoords.get(j).y - offset, radius, radius);
+                    g2.setColor(RED_ACCENT);
+                    g2.drawOval(pointCoords.get(j).x - offset, pointCoords.get(j).y - offset, radius, radius);
+                }
+
+                // ===============================================================
+                // VẼ POP-UP TOOLTIP (MÀU ĐEN HIỂN THỊ TIỀN) NẾU CÓ HOVER
+                // ===============================================================
+                if (hoverIndex != -1) {
+                    String moneyText = df.format(valuesList.get(hoverIndex));
+                    Point pt = pointCoords.get(hoverIndex);
+                    
+                    FontMetrics fm = g2.getFontMetrics(new Font("Segoe UI", Font.BOLD, 14));
+                    int textWidth = fm.stringWidth(moneyText);
+                    int textHeight = fm.getHeight();
+                    
+                    int boxW = textWidth + 20;
+                    int boxH = textHeight + 10;
+                    int boxX = pt.x - boxW / 2;
+                    int boxY = pt.y - boxH - 15; // Đẩy lên trên cái chấm
+                    
+                    // Chống tràn popup ra ngoài lề trái/phải/trên
+                    if (boxX < 0) boxX = 5;
+                    if (boxX + boxW > w) boxX = w - boxW - 5;
+                    if (boxY < 0) boxY = pt.y + 15; // Nếu tràn lên trên thì kéo nó xuống dưới chấm
+                    
+                    // Vẽ cục nền đen
+                    g2.setColor(new Color(0, 0, 0, 200));
+                    g2.fillRoundRect(boxX, boxY, boxW, boxH, 10, 10);
+                    
+                    // Vẽ chữ trắng
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                    g2.drawString(moneyText, boxX + 10, boxY + boxH - 8);
+                }
             }
         };
-        chartArea.setBackground(Color.WHITE);
-        p.add(chartArea, BorderLayout.CENTER);
+        chartDrawArea.setOpaque(false);
+        card.add(chartDrawArea, BorderLayout.CENTER);
 
-        return p;
+        return card;
     }
 
-    // --- PANEL REAL-TIME ---
-    private JPanel createRealTimePanel() {
-        JPanel p = new ModernPanel();
-        p.setLayout(new BorderLayout());
-        p.setBorder(new EmptyBorder(20, 20, 20, 20));
+    private JPanel createTopItemPanel() {
+        JPanel card = new ModernPanel();
+        card.setLayout(new BorderLayout());
+        card.setBorder(new EmptyBorder(25, 30, 25, 30));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 400)); 
 
-        JLabel lblTitle = new JLabel("Hoạt động hiện tại (Real-time)");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        p.add(lblTitle, BorderLayout.NORTH);
+        JLabel lblTitle = new JLabel("Thống kê món ăn bán chạy");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        card.add(lblTitle, BorderLayout.NORTH);
 
-        JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
+        JPanel listPnl = new JPanel();
+        listPnl.setLayout(new BoxLayout(listPnl, BoxLayout.Y_AXIS));
+        listPnl.setOpaque(false);
+        listPnl.setBorder(new EmptyBorder(20, 0, 0, 0));
 
-        // Trống - Phục vụ - Đã đặt
-        JPanel stats = new JPanel(new GridLayout(1, 3));
-        stats.setOpaque(false);
-        stats.add(createStatItem("Trống", "9", GREEN_SOFT));
-        stats.add(createStatItem("Phục vụ", "1", RED_SOFT));
-        stats.add(createStatItem("Đã đặt", "0", Color.ORANGE));
-        content.add(stats, BorderLayout.NORTH);
+        Map<String, Double> topMon = thongKeDAO.getTopMonAnBanChay();
+        
+        for (Map.Entry<String, Double> entry : topMon.entrySet()) {
+            JPanel row = new JPanel(new BorderLayout());
+            row.setOpaque(false);
+            row.setBorder(new EmptyBorder(10, 0, 10, 0));
 
-        // Nhân viên trong ca
-        JPanel staffInShift = new JPanel(new BorderLayout());
-        staffInShift.setOpaque(false);
-        staffInShift.setBorder(new EmptyBorder(20, 0, 0, 0));
-        JLabel lblStaff = new JLabel("Nhân viên đang trong ca:");
-        lblStaff.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        JLabel lblStatus = new JLabel("(Không có nhân viên nào đang trực)");
-        lblStatus.setForeground(Color.GRAY);
-        staffInShift.add(lblStaff, BorderLayout.NORTH);
-        staffInShift.add(lblStatus, BorderLayout.CENTER);
+            JLabel lblName = new JLabel(entry.getKey());
+            lblName.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            lblName.setForeground(TEXT_DARK);
 
-        content.add(staffInShift, BorderLayout.CENTER);
-        p.add(content, BorderLayout.CENTER);
-        return p;
+            JLabel lblMoney = new JLabel(df.format(entry.getValue()));
+            lblMoney.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+            lblMoney.setForeground(Color.GRAY);
+
+            row.add(lblName, BorderLayout.WEST);
+            row.add(lblMoney, BorderLayout.EAST);
+            
+            listPnl.add(row);
+            
+            JPanel line = new JPanel();
+            line.setBackground(new Color(230, 230, 230));
+            line.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+            listPnl.add(line);
+        }
+
+        card.add(listPnl, BorderLayout.CENTER);
+        return card;
     }
 
-    // --- PANEL XU HƯỚNG MÓN ĂN ---
-    private JPanel createTrendPanel() {
-        JPanel p = new ModernPanel();
-        p.setLayout(new BorderLayout());
-        p.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        JLabel lblTitle = new JLabel("Xu hướng món ăn (7 ngày qua)");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        p.add(lblTitle, BorderLayout.NORTH);
-
-        JPanel list = new JPanel();
-        list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-        list.setOpaque(false);
-        list.setBorder(new EmptyBorder(15, 0, 0, 0));
-
-        list.add(createTrendItem("1", "Vang trắng Pháp", "44 suất", BLUE_ACCENT));
-        list.add(Box.createRigidArea(new Dimension(0, 10)));
-        list.add(createTrendItem("2", "Cà phê sữa đá", "22 suất", Color.GRAY));
-        list.add(Box.createRigidArea(new Dimension(0, 10)));
-        list.add(createTrendItem("3", "Cà ri vịt", "20 suất", new Color(160, 82, 45)));
-
-        p.add(list, BorderLayout.CENTER);
-        return p;
-    }
-
-    // --- PANEL TOP NHÂN VIÊN ---
-    private JPanel createTopStaffPanel() {
-        JPanel p = new ModernPanel();
-        p.setLayout(new BorderLayout());
-        p.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        JLabel lblTitle = new JLabel("Top Nhân viên chăm chỉ");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        p.add(lblTitle, BorderLayout.NORTH);
-
-        JLabel emptyMsg = new JLabel("Chưa có dữ liệu chấm công tuần này.", SwingConstants.CENTER);
-        emptyMsg.setForeground(Color.GRAY);
-        p.add(emptyMsg, BorderLayout.CENTER);
-
-        return p;
-    }
-
-    // Helper: Tạo mục thống kê số
-    private JPanel createStatItem(String label, String value, Color color) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        JLabel l = new JLabel(label, SwingConstants.CENTER);
-        JLabel v = new JLabel(value, SwingConstants.CENTER);
-        v.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        v.setForeground(color);
-        p.add(l, BorderLayout.SOUTH);
-        p.add(v, BorderLayout.CENTER);
-        return p;
-    }
-
-    // Helper: Tạo dòng xu hướng món ăn
-    private JPanel createTrendItem(String rank, String name, String qty, Color rankColor) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        p.setMaximumSize(new Dimension(500, 40));
-
-        JLabel lblRank = new JLabel(rank, SwingConstants.CENTER);
-        lblRank.setPreferredSize(new Dimension(30, 30));
-        lblRank.setOpaque(true);
-        lblRank.setBackground(rankColor);
-        lblRank.setForeground(Color.WHITE);
-
-        JLabel lblName = new JLabel("  " + name);
-        JLabel lblQty = new JLabel(qty);
-
-        p.add(lblRank, BorderLayout.WEST);
-        p.add(lblName, BorderLayout.CENTER);
-        p.add(lblQty, BorderLayout.EAST);
-        return p;
-    }
-
-    // Lớp Panel bo góc trắng
     class ModernPanel extends JPanel {
         @Override
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(Color.WHITE);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
             g2.dispose();
         }
+    }
+    
+    class ScrollablePanel extends JPanel implements Scrollable {
+        @Override public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+        @Override public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        @Override public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        @Override public boolean getScrollableTracksViewportHeight() { return false; }
+        @Override public boolean getScrollableTracksViewportWidth() { return true; } 
     }
 }

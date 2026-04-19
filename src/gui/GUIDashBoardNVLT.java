@@ -23,8 +23,13 @@ public class GUIDashBoardNVLT extends JFrame {
 
     private SoDoBanPanel_NVLT pnlSoDoBan;
     private DanhSachDatBanPanel pnlDanhSachDatBan; 
+    
+    // Thêm biến lưu mã nhân viên đăng nhập
+    private String maNV;
 
-    public GUIDashBoardNVLT() {
+    // Yêu cầu truyền mã NV khi mở form này lên
+    public GUIDashBoardNVLT(String maNV) {
+        this.maNV = maNV;
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
 
         setTitle("Tuấn Trường Restaurant System - Staff");
@@ -60,7 +65,8 @@ public class GUIDashBoardNVLT extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
 
-        pnlSoDoBan = new SoDoBanPanel_NVLT();
+        // TRUYỀN MÃ NHÂN VIÊN VÀO SƠ ĐỒ BÀN ĐỂ TẠO PHIẾU ẢO KHÔNG BỊ LỖI
+        pnlSoDoBan = new SoDoBanPanel_NVLT(this.maNV);
         pnlDanhSachDatBan = new DanhSachDatBanPanel(); 
 
         mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
@@ -94,7 +100,6 @@ public class GUIDashBoardNVLT extends JFrame {
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, cardName);
             setActiveMenu(text);
-            // ĐÃ XÓA logic gọi pnl.loadData() ở đây để tránh lỗi gạch đỏ
         });
         
         container.add(btn);
@@ -148,10 +153,11 @@ public class GUIDashBoardNVLT extends JFrame {
         sep.setMaximumSize(new Dimension(230, 1));
         sep.setForeground(new Color(220, 220, 220));
         
-        JLabel name = new JLabel("NHÂN VIÊN LỄ TÂN");
+        // Hiển thị mã nhân viên đang đăng nhập lên góc dưới bên trái
+        JLabel name = new JLabel("LỄ TÂN (" + maNV + ")");
         name.setIcon(getIconFromFile("icons/user.png", 18));
         name.setForeground(TEXT_DARK);
-        name.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        name.setFont(new Font("Segoe UI", Font.BOLD, 13));
         name.setBorder(new EmptyBorder(15, 0, 15, 0));
         
         JButton btnLogout = new JButton(" Đăng xuất");
@@ -164,7 +170,7 @@ public class GUIDashBoardNVLT extends JFrame {
         btnLogout.addActionListener(e -> {
             if (JOptionPane.showConfirmDialog(this, "Xác nhận đăng xuất?", "Thoát", 0) == 0) {
                 this.dispose(); 
-                // new GUITaiKhoan().setVisible(true); // Nhớ bỏ comment nếu bạn có màn hình đăng nhập
+                new GUITaiKhoan().setVisible(true); 
             }
         });
         
@@ -185,6 +191,7 @@ public class GUIDashBoardNVLT extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new GUIDashBoardNVLT().setVisible(true));
+        // Truyền tạm "NV008" để test khi chạy file này trực tiếp
+        SwingUtilities.invokeLater(() -> new GUIDashBoardNVLT("NV008").setVisible(true));
     }
 }

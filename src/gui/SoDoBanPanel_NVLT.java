@@ -5,8 +5,8 @@ import dao.DonDatBanDAO;
 import dao.DonDatMon_DAO;
 import entity.Ban;
 import entity.DonDatBan;
+
 import javax.swing.*;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -38,6 +38,8 @@ public class SoDoBanPanel_NVLT extends JPanel {
 
     private BanDAO banDAO;
     private DonDatBanDAO donDatBanDAO; 
+    private DonDatMon_DAO donDatMonDAO; // Gọi để gộp món nếu bàn đang ăn
+    
     private JPanel pnlDanhSachBan;
     private JPanel pnlFloorFilter;
     private JTextField txtSearch;
@@ -62,10 +64,15 @@ public class SoDoBanPanel_NVLT extends JPanel {
     private List<Ban> listBanGop = new ArrayList<>();
     private JButton btnGopBan;
     private JButton btnHuyGop;
+    
+    private String maNV;
 
-    public SoDoBanPanel_NVLT() {
+    public SoDoBanPanel_NVLT(String maNV) {
+        this.maNV = maNV;
         banDAO = new BanDAO();
         donDatBanDAO = new DonDatBanDAO(); 
+        donDatMonDAO = new DonDatMon_DAO();
+        
         initUI();
         
         dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
@@ -75,17 +82,20 @@ public class SoDoBanPanel_NVLT extends JPanel {
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                if (txtSearch != null) {
-                    loadData(txtSearch.getText().trim()); 
-                } else {
-                    loadData("");
-                }
+                // CHÌA KHÓA: Đợi cửa sổ hiển thị xong xuôi (có độ rộng thật) rồi mới vẽ bàn
+                SwingUtilities.invokeLater(() -> {
+                    if (txtSearch != null) {
+                        loadData(txtSearch.getText().trim()); 
+                    } else {
+                        loadData("");
+                    }
+                });
             }
         });
     }
 
     private void startAutoCheckTimer() {
-        autoCheckTimer = new Timer(5000, e -> {
+        autoCheckTimer = new Timer(5000, evt -> {
             if (donDatBanDAO.autoUpdateMauBan()) loadData(txtSearch.getText());
             kiemTraKhachDenTre(); 
         });
@@ -126,242 +136,252 @@ public class SoDoBanPanel_NVLT extends JPanel {
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
         topWrapper.setOpaque(false);
 
+        // 1. Banner thời gian
         JPanel timeBanner = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         timeBanner.setBackground(new Color(255, 246, 246));
         timeBanner.putClientProperty("FlatLaf.style", "arc: 15");
 
         lblTimeDate = new JLabel();
         lblTimeDate.setFont(new Font("Segoe UI", Font.PLAIN, 15)); 
-        lblTimeDate.setForeground(Color.BLACK);
-        
-        Locale localeVI = new Locale("vi", "VN");
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("EEEE, 'ngày' dd/MM/yyyy - HH:mm:ss", localeVI);
-        timer = new Timer(1000, e -> lblTimeDate.setText(LocalDateTime.now().format(dtf)));
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("EEEE, 'ngày' dd/MM/yyyy - HH:mm:ss", new Locale("vi", "VN"));
+        timer = new Timer(1000, evt -> lblTimeDate.setText(LocalDateTime.now().format(dtf)));
         timer.start();
-        
         timeBanner.add(lblTimeDate);
         topWrapper.add(timeBanner);
         topWrapper.add(Box.createRigidArea(new Dimension(0, 20)));
 
+        // 2. Các nút chức năng trái
         JPanel titleActionPanel = new JPanel(new BorderLayout());
         titleActionPanel.setOpaque(false);
-
         JPanel pnlLeftActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         pnlLeftActions.setOpaque(false);
         
         btnGopBan = createSpecialButton("Gộp bàn");
-        btnGopBan.addActionListener(e -> xuLyNutGopBan());
+        btnGopBan.addActionListener(evt -> xuLyNutGopBan());
         pnlLeftActions.add(btnGopBan);
         
         btnHuyGop = createSpecialButton("Hủy thao tác");
-        btnHuyGop.setBackground(Color.GRAY);
-        btnHuyGop.setForeground(Color.WHITE);
-        btnHuyGop.setVisible(false);
-        btnHuyGop.addActionListener(e -> exitGopBanMode());
+        btnHuyGop.setBackground(Color.GRAY); btnHuyGop.setForeground(Color.WHITE); btnHuyGop.setVisible(false);
+        btnHuyGop.addActionListener(evt -> exitGopBanMode());
         pnlLeftActions.add(btnHuyGop);
         
         JButton btnCheckIn = createSpecialButton("Check-in");
-        btnCheckIn.addActionListener(e -> {
-            DialogCheckIn dialogCheckIn = new DialogCheckIn(SwingUtilities.getWindowAncestor(this));
-            dialogCheckIn.setVisible(true);
-            if (dialogCheckIn.isThanhCong()) loadData(txtSearch.getText().trim());
+        btnCheckIn.addActionListener(evt -> {
+            DialogCheckIn dialog = new DialogCheckIn(SwingUtilities.getWindowAncestor(this));
+            dialog.setVisible(true);
+            if (dialog.isThanhCong()) loadData(txtSearch.getText().trim());
         });
         pnlLeftActions.add(btnCheckIn);
         
+        // ==========================================
+        // ĐÃ THÊM NÚT CHUYỂN BÀN Ở ĐÂY
+        // ==========================================
+        JButton btnChuyenBan = createSpecialButton("Chuyển bàn");
+        btnChuyenBan.addActionListener(evt -> xuLyNutChuyenBan());
+        pnlLeftActions.add(btnChuyenBan);
+        // ==========================================
+        
         btnDatBan = createSpecialButton("Đặt bàn");
-        btnDatBan.addActionListener(e -> xuLyNutDatBan());
+        btnDatBan.addActionListener(evt -> xuLyNutDatBan());
         pnlLeftActions.add(btnDatBan);
-
         titleActionPanel.add(pnlLeftActions, BorderLayout.WEST);
 
+        // 3. Ô tìm kiếm phải
         JPanel btnActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         btnActions.setOpaque(false);
-        
-        txtTimSoGhe = new JTextField(5);
-        txtTimSoGhe.setPreferredSize(new Dimension(100, 40));
+        txtTimSoGhe = new JTextField(5); txtTimSoGhe.setPreferredSize(new Dimension(100, 40));
         txtTimSoGhe.putClientProperty("JTextField.placeholderText", "Số ghế...");
         txtTimSoGhe.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { checkGheAndLoad(); }
             public void removeUpdate(DocumentEvent e) { checkGheAndLoad(); }
             public void changedUpdate(DocumentEvent e) { checkGheAndLoad(); }
         });
-        
-        txtSearch = new JTextField(15);
-        txtSearch.setPreferredSize(new Dimension(220, 40));
+        txtSearch = new JTextField(15); txtSearch.setPreferredSize(new Dimension(220, 40));
         txtSearch.putClientProperty("JTextField.placeholderText", "Tìm tên bàn...");
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { loadData(txtSearch.getText()); }
             public void removeUpdate(DocumentEvent e) { loadData(txtSearch.getText()); }
             public void changedUpdate(DocumentEvent e) { loadData(txtSearch.getText()); }
         });
-        
-        btnActions.add(txtTimSoGhe); 
-        btnActions.add(txtSearch);
+        btnActions.add(txtTimSoGhe); btnActions.add(txtSearch);
         titleActionPanel.add(btnActions, BorderLayout.EAST);
         
-        JPanel pnlErrorRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
-        pnlErrorRow.setOpaque(false);
         lblErrorSoGhe = new JLabel("* Vui lòng nhập đúng số ghế");
-        lblErrorSoGhe.setForeground(Color.RED);
-        lblErrorSoGhe.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        lblErrorSoGhe.setVisible(false); 
-        pnlErrorRow.add(lblErrorSoGhe);
-        
-        titleActionPanel.add(pnlErrorRow, BorderLayout.SOUTH);
+        lblErrorSoGhe.setForeground(Color.RED); lblErrorSoGhe.setFont(new Font("Segoe UI", Font.ITALIC, 12)); lblErrorSoGhe.setVisible(false); 
+        JPanel pnlErr = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0)); pnlErr.setOpaque(false); pnlErr.add(lblErrorSoGhe);
+        titleActionPanel.add(pnlErr, BorderLayout.SOUTH);
 
         topWrapper.add(titleActionPanel);
         topWrapper.add(Box.createRigidArea(new Dimension(0, 15)));
 
+        // 4. Thanh lọc tầng và trạng thái
         JPanel pnlFilterBar = new JPanel(new BorderLayout());
         pnlFilterBar.setOpaque(false);
-        pnlFloorFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        pnlFloorFilter.setOpaque(false);
+        pnlFloorFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0)); pnlFloorFilter.setOpaque(false);
         String[] floors = {"Tất cả", "Ngoài trời", "Phòng VIP", "Tầng 1", "Tầng 2"};
         for (String f : floors) pnlFloorFilter.add(createFloorButton(f));
-
-        JPanel pnlStatus = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        pnlStatus.setOpaque(false);
+        
+        JPanel pnlStatus = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); pnlStatus.setOpaque(false);
         pnlStatus.add(createStatusButton("Tất cả", Color.GRAY));
         pnlStatus.add(createStatusButton("Trống", COLOR_TRONG));
         pnlStatus.add(createStatusButton("Đã đặt", COLOR_DAT));
         pnlStatus.add(createStatusButton("Đang dùng", COLOR_DUNG));
         pnlStatus.add(createStatusButton("Quá hạn", Color.RED)); 
-
+        
         pnlFilterBar.add(pnlFloorFilter, BorderLayout.WEST);
         pnlFilterBar.add(pnlStatus, BorderLayout.EAST);
-
         topWrapper.add(pnlFilterBar);
         add(topWrapper, BorderLayout.NORTH);
 
-        pnlDanhSachBan = new JPanel();
-        pnlDanhSachBan.setLayout(new BoxLayout(pnlDanhSachBan, BoxLayout.Y_AXIS));
+        // =====================================================================
+        // GIẢI PHÁP ĐỘC QUYỀN: Dùng GridBagLayout + ScrollablePanel 
+        // để fix cả lỗi tràn lề lẫn lỗi kẹp 1 dòng khi khởi động
+        // =====================================================================
+        pnlDanhSachBan = new ScrollablePanel(); 
+        
+        // Đã thay BoxLayout thành GridBagLayout
+        pnlDanhSachBan.setLayout(new GridBagLayout()); 
         pnlDanhSachBan.setOpaque(false);
+        
         JScrollPane scrollPane = new JScrollPane(pnlDanhSachBan);
         scrollPane.setBorder(null);
+        scrollPane.setViewportBorder(null);
         scrollPane.getViewport().setBackground(Color.WHITE);
         scrollPane.getVerticalScrollBar().setUnitIncrement(30); 
+        
+        // Khóa chặt thanh trượt ngang để chống tràn
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        
         add(scrollPane, BorderLayout.CENTER);
     }
 
-    private void xuLyNutGopBan() {
-        if (!isGopBanMode) {
-            isGopBanMode = true;
-            listBanGop.clear();
-            
-            if (filterThoiGianDat != null) {
-                btnGopBan.setText("Xác nhận Đặt Gộp");
-            } else {
-                btnGopBan.setText("Xác nhận ghép");
-            }
-            
-            btnGopBan.setBackground(new Color(40, 167, 69)); 
-            btnGopBan.setForeground(Color.WHITE);
-            btnHuyGop.setVisible(true); 
-            loadData(txtSearch.getText().trim()); 
-        } else {
-            if (listBanGop.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng tick chọn ít nhất 1 bàn trên sơ đồ!", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+	// =========================================================================
+	// ĐÃ SỬA LẠI HOÀN TOÀN: GỘP BÀN BẰNG CỘT maKhoi TRONG DATABASE
+	// =========================================================================
+	private void xuLyNutGopBan() {
+		if (!isGopBanMode) {
+			isGopBanMode = true;
+			listBanGop.clear();
+			
+			if (filterThoiGianDat != null) {
+				btnGopBan.setText("Xác nhận Đặt Gộp");
+			} else {
+				btnGopBan.setText("Xác nhận khối");
+			}
+			
+			btnGopBan.setBackground(new Color(40, 167, 69)); 
+			btnGopBan.setForeground(Color.WHITE);
+			btnHuyGop.setVisible(true); 
+			loadData(txtSearch.getText().trim()); 
+		} else {
+			if (listBanGop.isEmpty()) {
+				JOptionPane.showMessageDialog(this, "Vui lòng tick chọn ít nhất 1 bàn trên sơ đồ!", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
+				return;
+			}
 
-            if (filterThoiGianDat != null) {
-                Ban firstBan = listBanGop.get(0); 
-                String strNgay = filterThoiGianDat.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                String strGio = filterThoiGianDat.format(DateTimeFormatter.ofPattern("HH:mm"));
-                String strSL = filterSoLuongKhach != null ? String.valueOf(filterSoLuongKhach) : "2";
+			// --- TRƯỜNG HỢP 1: LÀM ĐƠN ĐẶT BÀN TRƯỚC (GỘP) ---
+			if (filterThoiGianDat != null) {
+				Ban firstBan = listBanGop.get(0); 
+				String strNgay = filterThoiGianDat.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+				String strGio = filterThoiGianDat.format(DateTimeFormatter.ofPattern("HH:mm"));
+				String strSL = filterSoLuongKhach != null ? String.valueOf(filterSoLuongKhach) : "2";
 
-                DialogTaoDonDat diag = new DialogTaoDonDat(SwingUtilities.getWindowAncestor(this), firstBan, strNgay, strGio, strSL);
-                diag.setVisible(true);
-                
-                if (diag.isThanhCong()) {
-                    try {
-                        LocalDate ngayMoi = LocalDate.parse(diag.getNgay(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                        LocalTime gioMoi = LocalTime.parse(diag.getGio(), DateTimeFormatter.ofPattern("HH:mm"));
-                        
-                        dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
-                        int index = 1;
-                        
-                        for (Ban b : listBanGop) {
-                            boolean isHopLe = true;
-                            for (DonDatBan donCu : dsDonDatHienTai) {
-                                if (donCu.getMaBan().equals(b.getMaBan()) && donCu.getNgayDat().equals(ngayMoi) && !donCu.getTrangThai().equalsIgnoreCase("Đã hủy")) {
-                                    if (Math.abs(Duration.between(donCu.getThoiGian(), gioMoi).toMinutes()) < 120) {
-                                        JOptionPane.showMessageDialog(this, "Bàn " + b.getMaBan() + " đã có lịch đặt!\nVui lòng chọn bàn khác.", "Lỗi trùng lịch", JOptionPane.WARNING_MESSAGE);
-                                        isHopLe = false; break;
-                                    }
-                                }
-                            }
-                            if (!isHopLe) continue; 
+				DialogTaoDonDat diag = new DialogTaoDonDat(SwingUtilities.getWindowAncestor(this), firstBan, strNgay, strGio, strSL);
+				diag.setVisible(true);
+				
+				if (diag.isThanhCong()) {
+					try {
+						LocalDate ngayMoi = LocalDate.parse(diag.getNgay(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+						LocalTime gioMoi = LocalTime.parse(diag.getGio(), DateTimeFormatter.ofPattern("HH:mm"));
+						dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
+						int index = 1;
+						
+						for (Ban b : listBanGop) {
+							boolean isHopLe = true;
+							for (DonDatBan donCu : dsDonDatHienTai) {
+								if (donCu.getMaBan().equals(b.getMaBan()) && donCu.getNgayDat().equals(ngayMoi) && !donCu.getTrangThai().equalsIgnoreCase("Đã hủy")) {
+									if (Math.abs(Duration.between(donCu.getThoiGian(), gioMoi).toMinutes()) < 120) {
+										JOptionPane.showMessageDialog(this, "Bàn " + b.getMaBan() + " đã có lịch đặt!\nVui lòng chọn bàn khác.", "Lỗi trùng lịch", JOptionPane.WARNING_MESSAGE);
+										isHopLe = false; break;
+									}
+								}
+							}
+							if (!isHopLe) continue; 
 
-                            String newMaDon = diag.getMaDon() + (listBanGop.size() > 1 ? "-" + index : "");
-                            
-                            DonDatBan donMoi = new DonDatBan(newMaDon, b.getMaBan(), ngayMoi, gioMoi, Integer.parseInt(diag.getSoLuong()), diag.getGhiChu(), "Đang chờ");
-                            donMoi.setTenKhachHang(diag.getHoTen());
-                            donMoi.setSoDienThoai(diag.getSdt());
-                            
-                            if (donDatBanDAO.insertDonDat(donMoi)) {
-                                dsDonDatHienTai.add(donMoi); 
-                            }
-                            index++;
-                        }
-                        
-                        if (donDatBanDAO.autoUpdateMauBan()) loadData(txtSearch.getText());
-                        JOptionPane.showMessageDialog(this, "Đã tạo đơn gộp thành công cho khách: " + diag.getHoTen());
-                        
-                        exitGopBanMode();
-                        filterSoLuongKhach = null; filterThoiGianDat = null;
-                        btnDatBan.setText("Đặt bàn"); btnDatBan.setBackground(BTN_YELLOW);
-                        loadData(txtSearch.getText()); 
-                        
-                    } catch (Exception ex) { 
-                        JOptionPane.showMessageDialog(this, "Lỗi định dạng ngày/giờ hoặc lưu dữ liệu!"); 
-                    }
-                }
-            } 
-            else {
-                if (listBanGop.size() < 2) {
-                    JOptionPane.showMessageDialog(this, "Vui lòng tick chọn ít nhất 2 bàn để ghép hóa đơn!", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
+							String newMaDon = diag.getMaDon() + (listBanGop.size() > 1 ? "-" + index : "");
+							DonDatBan donMoi = new DonDatBan(newMaDon, b.getMaBan(), ngayMoi, gioMoi, Integer.parseInt(diag.getSoLuong()), diag.getGhiChu(), "Đang chờ");
+							donMoi.setTenKhachHang(diag.getHoTen());
+							donMoi.setSoDienThoai(diag.getSdt());
+							
+							if (donDatBanDAO.insertDonDat(donMoi)) dsDonDatHienTai.add(donMoi); 
+							index++;
+						}
+						
+						if (donDatBanDAO.autoUpdateMauBan()) loadData(txtSearch.getText());
+						JOptionPane.showMessageDialog(this, "Đã tạo đơn gộp thành công cho khách: " + diag.getHoTen());
+						
+						exitGopBanMode();
+						filterSoLuongKhach = null; filterThoiGianDat = null;
+						btnDatBan.setText("Đặt bàn"); btnDatBan.setBackground(BTN_YELLOW);
+						loadData(txtSearch.getText()); 
+					} catch (Exception ex) { JOptionPane.showMessageDialog(this, "Lỗi lưu dữ liệu!"); }
+				}
+			} 
+			// --- TRƯỜNG HỢP 2: TẠO KHỐI BÀN ---
+			else {
+				if (listBanGop.size() < 2) {
+					JOptionPane.showMessageDialog(this, "Vui lòng tick chọn ít nhất 2 bàn để ghép khối!", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
+					return;
+				}
+
+                boolean tatCaDeuTrong = listBanGop.stream().noneMatch(b -> 
+                    b.getTrangThai().equalsIgnoreCase("Đang dùng") || b.getTrangThai().equalsIgnoreCase("Đã đặt")
+                );
+
+                List<String> dsMaBan = listBanGop.stream().map(Ban::getMaBan).collect(Collectors.toList());
+
+                // Nếu TẤT CẢ CÁC BÀN ĐỀU ĐANG TRỐNG -> Chỉ cần Database BanDAO tạo khối là xong, siêu nhàn!
+                if (tatCaDeuTrong) {
+                    String maBanChinh = listBanGop.get(0).getMaBan();
+                    banDAO.taoKhoiBan(dsMaBan, maBanChinh); 
+                    
+                    JOptionPane.showMessageDialog(this, "Đã tạo Khối bàn thành công! Số đánh dấu đã được hiển thị.");
+                    exitGopBanMode();
                     return;
                 }
 
-                JComboBox<String> cbMain = new JComboBox<>();
-                for (Ban b : listBanGop) {
-                    cbMain.addItem(b.getMaBan() + " - " + b.getTenBan());
-                }
+                // Nếu có bàn đang ăn (Có phiếu Gọi món) -> Cho Lễ tân chọn Bàn chính, rồi gộp Phiếu Gọi Món, sau đó gộp Khối
+				JComboBox<String> cbMain = new JComboBox<>();
+				for (Ban b : listBanGop) {
+					cbMain.addItem(b.getMaBan() + " - " + b.getTenBan());
+				}
 
-                JPanel pnl = new JPanel(new BorderLayout(0, 10));
-                pnl.add(new JLabel("Vui lòng chọn Bàn Chính (Hóa đơn của các bàn khác sẽ dồn về đây):"), BorderLayout.NORTH);
-                pnl.add(cbMain, BorderLayout.CENTER);
+				JPanel pnl = new JPanel(new BorderLayout(0, 10));
+				pnl.add(new JLabel("Vui lòng chọn Bàn Chính (Hóa đơn của các bàn khác sẽ dồn về đây):"), BorderLayout.NORTH);
+				pnl.add(cbMain, BorderLayout.CENTER);
 
-                int confirm = JOptionPane.showConfirmDialog(this, pnl, "Xác nhận ghép bàn", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-                
-                if (confirm == JOptionPane.OK_OPTION) {
-                    String selected = cbMain.getSelectedItem().toString();
-                    String maBanChinh = selected.split(" - ")[0];
-                    List<String> listBanPhu = new ArrayList<>();
-                    
-                    for (Ban b : listBanGop) {
-                        if (!b.getMaBan().equals(maBanChinh)) {
-                            listBanPhu.add(b.getMaBan());
-                        }
-                    }
+				int confirm = JOptionPane.showConfirmDialog(this, pnl, "Xác nhận tạo khối", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+				
+				if (confirm == JOptionPane.OK_OPTION) {
+					String selected = cbMain.getSelectedItem().toString();
+					String maBanChinh = selected.split(" - ")[0];
+					List<String> listBanPhu = dsMaBan.stream().filter(m -> !m.equals(maBanChinh)).collect(Collectors.toList());
 
-                    boolean success = new dao.DonDatMon_DAO().gopDonDatMon(maBanChinh, listBanPhu); 
-                    
-                    if (success) {
-                        banDAO.updateTrangThaiBan(maBanChinh, "Đang dùng");
-                        for (String bp : listBanPhu) {
-                            banDAO.updateTrangThaiBan(bp, "Đang dùng");
-                        }
-                        JOptionPane.showMessageDialog(this, "Ghép bàn thành công! Hóa đơn đã được gộp về " + maBanChinh);
-                        exitGopBanMode(); 
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi gộp hóa đơn ở Database!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            }
-        }
-    }
+                    // Gọi DonDatMon_DAO để dồn món ăn sang Phiếu của Bàn Chính
+					boolean success = donDatMonDAO.gopDonDatMon(maBanChinh, listBanPhu); 
+					
+					if (success) {
+                        // Gọi BanDAO để khóa các bàn này thành 1 Khối trong DB
+						banDAO.taoKhoiBan(dsMaBan, maBanChinh);
+						JOptionPane.showMessageDialog(this, "Ghép khối bàn thành công!");
+						exitGopBanMode(); 
+					} else {
+						JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi xử lý khối ở Database!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+					}
+				}
+			}
+		}
+	}
 
     private void exitGopBanMode() {
         isGopBanMode = false;
@@ -388,6 +408,7 @@ public class SoDoBanPanel_NVLT extends JPanel {
     }
 
     private void xuLyNutDatBan() {
+        // Nút này đang ở trạng thái "Hủy lọc", bấm vào thì reset về ban đầu
         if (filterSoLuongKhach != null || filterThoiGianDat != null) {
             filterSoLuongKhach = null;
             filterThoiGianDat = null;
@@ -397,33 +418,58 @@ public class SoDoBanPanel_NVLT extends JPanel {
             return;
         }
 
-        JPanel pnl = new JPanel(new GridLayout(3, 2, 10, 15));
+        // Khởi tạo các ô nhập liệu
         JTextField txtNgay = new JTextField(LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         JTextField txtGio = new JTextField(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         JTextField txtSL = new JTextField("2");
 
+        JPanel pnl = new JPanel(new GridLayout(3, 2, 10, 15));
         pnl.add(new JLabel("Ngày đặt (dd/MM/yyyy):")); pnl.add(txtNgay);
         pnl.add(new JLabel("Giờ đặt (HH:mm):")); pnl.add(txtGio);
         pnl.add(new JLabel("Số lượng khách:")); pnl.add(txtSL);
 
-        int result = JOptionPane.showConfirmDialog(this, pnl, "Tìm Bàn Trống Phù Hợp", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                LocalDate ngay = LocalDate.parse(txtNgay.getText().trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                LocalTime gio = LocalTime.parse(txtGio.getText().trim(), DateTimeFormatter.ofPattern("HH:mm"));
-                int sl = Integer.parseInt(txtSL.getText().trim());
+        // Vòng lặp giúp giữ nguyên Form nếu người dùng nhập sai
+        while (true) {
+            int result = JOptionPane.showConfirmDialog(this, pnl, "Tìm Bàn Trống Phù Hợp", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            
+            if (result == JOptionPane.OK_OPTION) {
+                try {
+                    LocalDate ngay = LocalDate.parse(txtNgay.getText().trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                    LocalTime gio = LocalTime.parse(txtGio.getText().trim(), DateTimeFormatter.ofPattern("HH:mm"));
+                    int sl = Integer.parseInt(txtSL.getText().trim());
 
-                filterSoLuongKhach = sl;
-                filterThoiGianDat = LocalDateTime.of(ngay, gio);
+                    // ==========================================================
+                    // VALIDATE: CHẶN TÌM BÀN Ở QUÁ KHỨ NGAY TẠI FORM LỌC
+                    // ==========================================================
+                    LocalDateTime thoiGianChon = LocalDateTime.of(ngay, gio);
+                    if (thoiGianChon.isBefore(LocalDateTime.now())) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Thời gian không hợp lệ!", 
+                            "Cảnh báo", 
+                            JOptionPane.WARNING_MESSAGE);
+                        continue; // Lỗi thì quay lại vòng lặp (hiện lại Form để sửa)
+                    }
 
-                btnDatBan.setText("Hủy lọc bàn");
-                btnDatBan.setBackground(COLOR_PINK); 
-                
-                dsDonDatHienTai = donDatBanDAO.getAllDonDat();
-                loadData(txtSearch.getText());
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Định dạng ngày giờ hoặc số lượng không hợp lệ!");
+                    // Nếu hợp lệ thì tiến hành lọc sơ đồ bàn
+                    filterSoLuongKhach = sl;
+                    filterThoiGianDat = thoiGianChon;
+
+                    btnDatBan.setText("Hủy lọc bàn");
+                    btnDatBan.setBackground(COLOR_PINK); 
+                    
+                    dsDonDatHienTai = donDatBanDAO.getAllDonDat();
+                    loadData(txtSearch.getText());
+                    break; // Thành công thì thoát vòng lặp đóng form
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Định dạng ngày/giờ không hợp lệ!\nVí dụ chuẩn: 19/04/2026 và 14:30", 
+                        "Lỗi nhập liệu", 
+                        JOptionPane.ERROR_MESSAGE);
+                    continue; // Nhập chữ bậy bạ cũng quay lại form
+                }
+            } else {
+                break; // Người dùng bấm Cancel (Hủy bỏ) thì thoát vòng lặp
             }
         }
     }
@@ -448,7 +494,7 @@ public class SoDoBanPanel_NVLT extends JPanel {
         btn.putClientProperty("JButton.buttonType", "roundRect");
         btn.putClientProperty("JButton.arc", 15);
         
-        btn.addActionListener(e -> {
+        btn.addActionListener(evt -> {
             floorFilter = text;
             for (Component c : pnlFloorFilter.getComponents()) {
                 if (c instanceof JButton) {
@@ -468,16 +514,26 @@ public class SoDoBanPanel_NVLT extends JPanel {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
         btn.putClientProperty("JButton.buttonType", "roundRect");
         btn.putClientProperty("JButton.arc", 15);
-        btn.addActionListener(e -> {
+        btn.addActionListener(evt -> {
             statusFilter = text;
             loadData(txtSearch.getText());
         });
         return btn;
     }
 
+    // ĐÃ XÓA HÀM updateMapBanGopId() VÌ BÂY GIỜ CHÚNG TA KHÔNG CẦN QUÉT TÌM CHỮ (GỒM:) NỮA.
+
     public void loadData(String query) {
         pnlDanhSachBan.removeAll();
-        List<Ban> dsAll = banDAO.getAllBan();
+        
+        // Thiết lập bộ quy tắc cho GridBagLayout
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        List<Ban> dsAll = banDAO.getAllBan(); 
         
         Integer walkInSeats = null;
         try {
@@ -503,8 +559,8 @@ public class SoDoBanPanel_NVLT extends JPanel {
                         for (DonDatBan don : dsDonDatHienTai) {
                             if (don.getMaBan().equals(b.getMaBan()) && !don.getTrangThai().equalsIgnoreCase("Đã hủy")) {
                                 LocalDateTime thoiGianDat = LocalDateTime.of(don.getNgayDat(), don.getThoiGian());
-                                long phutConLai = Duration.between(now, thoiGianDat).toMinutes();
-                                if (phutConLai < 0 && phutConLai >= -120) return true;
+                                long phutTre = java.time.Duration.between(thoiGianDat, now).toMinutes();
+                                if (phutTre > 15) return true;
                             }
                         }
                         return false;
@@ -515,61 +571,72 @@ public class SoDoBanPanel_NVLT extends JPanel {
                     return tt.equalsIgnoreCase(statusFilter);
                 })
                 .filter(b -> {
-                    // --- ĐÃ SỬA: Tự động bỏ qua "Lọc ghế" nếu đang bấm nút Gộp Bàn ---
+                    // 1. Lọc theo số lượng khách
                     if (filterSoLuongKhach != null && !isGopBanMode) {
-                        if (filterSoLuongKhach <= 10) {
-                            int minSize = (filterSoLuongKhach % 2 == 0) ? filterSoLuongKhach : filterSoLuongKhach + 1;
-                            if (b.getSoGhe() != minSize && b.getSoGhe() != (minSize + 2)) return false; 
-                        }
+                        int minSize = (filterSoLuongKhach % 2 == 0) ? filterSoLuongKhach : filterSoLuongKhach + 1;
+                        if (b.getSoGhe() < minSize) return false;
                     }
                     
-                    // Giữ nguyên lọc trùng thời gian để đảm bảo bàn đó còn TRỐNG lúc khách tới
-                    if (filterThoiGianDat != null) {
-                        boolean biTrungLich = dsDonDatHienTai.stream()
-                            .filter(d -> d.getMaBan().equals(b.getMaBan()) && !d.getTrangThai().equalsIgnoreCase("Đã hủy"))
-                            .anyMatch(d -> {
-                                LocalDateTime thoiGianHenCu = LocalDateTime.of(d.getNgayDat(), d.getThoiGian());
-                                return Math.abs(Duration.between(thoiGianHenCu, filterThoiGianDat).toMinutes()) < 120; 
-                            });
-                        if (biTrungLich) return false;
-                    }
-                    
-                    if (finalWalkInSeats != null && finalWalkInSeats > 0) {
-                        if (b.getTrangThai().equalsIgnoreCase("Đang dùng")) return false;
+                    // ======================================================================
+                    // 2. ĐÃ SỬA LỖI: Lọc ẩn luôn các bàn bị trùng lịch trong vòng 2 tiếng
+                    // ======================================================================
+                    if (filterThoiGianDat != null && !isGopBanMode) {
+                        LocalDate filterNgay = filterThoiGianDat.toLocalDate();
+                        LocalTime filterGio = filterThoiGianDat.toLocalTime();
                         
-                        // Lọc ghế khách Walk-in cũng bị vô hiệu hóa nếu đang Gộp Bàn
-                        if (finalWalkInSeats <= 10 && !isGopBanMode) {
-                            int minSize = (finalWalkInSeats % 2 == 0) ? finalWalkInSeats : finalWalkInSeats + 1;
-                            if (b.getSoGhe() != minSize && b.getSoGhe() != (minSize + 2)) return false; 
-                        }
-                        
-                        LocalDateTime now = LocalDateTime.now();
-                        boolean sapCoKhach = dsDonDatHienTai.stream()
-                            .filter(d -> d.getMaBan().equals(b.getMaBan()) && !d.getTrangThai().equalsIgnoreCase("Đã hủy"))
-                            .anyMatch(d -> {
-                                if (d.getNgayDat().equals(LocalDate.now())) {
-                                    LocalDateTime thoiGianDat = LocalDateTime.of(d.getNgayDat(), d.getThoiGian());
-                                    long phutConLai = Duration.between(now, thoiGianDat).toMinutes();
-                                    return phutConLai > -120 && phutConLai <= 90;
+                        for (DonDatBan don : dsDonDatHienTai) {
+                            // Nếu bàn đang xét trùng mã với một đơn đặt nào đó chưa bị hủy
+                            if (don.getMaBan().equals(b.getMaBan()) && !don.getTrangThai().equalsIgnoreCase("Đã hủy")) {
+                                // Và cùng ngày đặt
+                                if (don.getNgayDat().equals(filterNgay)) {
+                                    // Kiểm tra khoảng cách giờ
+                                    long diff = Math.abs(Duration.between(don.getThoiGian(), filterGio).toMinutes());
+                                    if (diff < 120) {
+                                        return false; // Ẩn luôn bàn này khỏi sơ đồ!
+                                    }
                                 }
-                                return false;
-                            });
-                        if (sapCoKhach) return false;
+                            }
+                        }
                     }
+                    
                     return true;
-                }).collect(Collectors.toList());
+                })
+                .sorted((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe()))
+                .collect(Collectors.toList());
 
             if (!dsTheoKV.isEmpty()) {
-                JLabel lblKV = new JLabel(khuVuc.toUpperCase());
-                lblKV.setFont(new Font("Segoe UI", Font.BOLD, 16));
-                lblKV.setBorder(new EmptyBorder(10, 5, 10, 0));
-                pnlDanhSachBan.add(lblKV);
+                // 1. Thêm Tiêu Đề Khu Vực
+                JPanel pnlKVTitle = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                pnlKVTitle.setOpaque(false);
+                JLabel lblKV = new JLabel("--- " + khuVuc.toUpperCase() + " ---");
+                lblKV.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                lblKV.setForeground(new Color(150, 50, 50));
+                lblKV.setBorder(new EmptyBorder(10, 10, 5, 0));
+                pnlKVTitle.add(lblKV);
+                
+                gbc.gridy++; // Xuống dòng
+                pnlDanhSachBan.add(pnlKVTitle, gbc);
+                
+                // 2. Thêm Lưới Bàn
                 JPanel pnlGrid = new JPanel(new WrapLayout(FlowLayout.LEFT, 20, 20));
                 pnlGrid.setOpaque(false);
-                for (Ban b : dsTheoKV) pnlGrid.add(taoTheBan(b));
-                pnlDanhSachBan.add(pnlGrid);
+                for (Ban b : dsTheoKV) {
+                    pnlGrid.add(taoTheBan(b));
+                }
+                
+                gbc.gridy++; // Xuống dòng
+                pnlDanhSachBan.add(pnlGrid, gbc);
             }
         }
+        
+        // 3. Đệm dưới cùng (Filler): Đẩy tất cả các tầng lên sát phía trên
+        gbc.gridy++;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        JPanel filler = new JPanel();
+        filler.setOpaque(false);
+        pnlDanhSachBan.add(filler, gbc);
+        
         pnlDanhSachBan.revalidate(); 
         pnlDanhSachBan.repaint();
     }
@@ -642,6 +709,29 @@ public class SoDoBanPanel_NVLT extends JPanel {
         pnlTopRight.setOpaque(false);
         pnlTopRight.setPreferredSize(new Dimension(width, 35));
 
+        // =========================================================================
+        // ĐÃ ĐƠN GIẢN HÓA CỰC KỲ: CHỈ CẦN GET MAKHOI TỪ ĐỐI TƯỢNG BAN
+        // =========================================================================
+        if (ban.getMaKhoi() != null && ban.getMaKhoi() > 0) {
+            int gId = ban.getMaKhoi();
+            JLabel lblGroup = new JLabel(String.valueOf(gId), SwingConstants.CENTER) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0, 123, 255)); 
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10); 
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
+            lblGroup.setFont(new Font("Arial", Font.BOLD, 14));
+            lblGroup.setForeground(Color.WHITE);
+            lblGroup.setPreferredSize(new Dimension(24, 24));
+            lblGroup.setToolTipText("Bàn thuộc Nhóm Khối số " + gId);
+            pnlTopRight.add(lblGroup);
+        }
+
         if (warningLevel > 0) {
             final int finalWarningLevel = warningLevel;
             final Color alertBgColor = (warningLevel == 1) ? Color.YELLOW : Color.RED;
@@ -697,7 +787,39 @@ public class SoDoBanPanel_NVLT extends JPanel {
 
         boolean isFiltered = (filterSoLuongKhach != null && filterThoiGianDat != null);
         JButton btnMoBan = createActionBtn("Mở bàn");
+        
+        // =========================================================================================
+        // ĐÃ NÂNG CẤP LẠI NÚT "VỀ TRỐNG": GIẢI TÁN KHỐI TRỰC TIẾP TỪ DATABASE
+        // =========================================================================================
         JButton btnChuyenTrong = createActionBtn("Về Trống");
+        btnChuyenTrong.addActionListener(evt -> {
+            dsDonDatHienTai = donDatBanDAO.getAllDonDat();
+            boolean dangCoDonDat = dsDonDatHienTai.stream()
+                .anyMatch(d -> d.getMaBan().equals(ban.getMaBan()) && (d.getTrangThai().equalsIgnoreCase("Checked-in") || d.getTrangThai().equalsIgnoreCase("Đang dùng")));
+
+            if (dangCoDonDat) {
+                JOptionPane.showMessageDialog(SoDoBanPanel_NVLT.this, 
+                    "Thao tác bị từ chối!\nBàn " + ban.getTenBan() + " đang dính ĐƠN ĐẶT BÀN (của Lễ tân).\n\n" +
+                    "👉 Vui lòng vào menu 'Danh sách đặt bàn' bên trái để chuyển Đơn Đặt Bàn này sang trạng thái 'Hoàn thành' hoặc 'Đã hủy' trước khi dọn bàn.", 
+                    "Bảo vệ dữ liệu", JOptionPane.ERROR_MESSAGE);
+                return; 
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(SoDoBanPanel_NVLT.this, "Chuyển bàn " + ban.getTenBan() + " về trạng thái Trống?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                
+                // Nếu bàn này đang thuộc 1 khối -> Giải tán nguyên khối (chỉ bằng 1 dòng DAO)
+                if (ban.getMaKhoi() != null) {
+                    banDAO.giaiTanKhoi(ban.getMaKhoi());
+                } else {
+                    // Nếu là bàn đơn -> Trả về trống bình thường
+                    banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống");
+                }
+                
+                loadData(txtSearch.getText());
+            }
+        });
+
         JButton btnDatTruoc = createActionBtn("Đặt trước");
 
         if (bg == COLOR_TRONG) {
@@ -745,7 +867,7 @@ public class SoDoBanPanel_NVLT extends JPanel {
             }
         });
 
-        btnMoBan.addActionListener(e -> {
+        btnMoBan.addActionListener(evt -> {
             boolean canWarning = false;
             String warningMsg = "";
             boolean isKhachTre = false;
@@ -798,24 +920,7 @@ public class SoDoBanPanel_NVLT extends JPanel {
             }
         });
 
-        btnChuyenTrong.addActionListener(e -> {
-            dsDonDatHienTai = donDatBanDAO.getAllDonDat();
-            boolean dangCoDonDat = dsDonDatHienTai.stream()
-                .anyMatch(d -> d.getMaBan().equals(ban.getMaBan()) && (d.getTrangThai().equalsIgnoreCase("Checked-in") || d.getTrangThai().equalsIgnoreCase("Đang dùng")));
-
-            if (dangCoDonDat) {
-                JOptionPane.showMessageDialog(SoDoBanPanel_NVLT.this, 
-                    "Thao tác bị từ chối!\nBàn " + ban.getTenBan() + " đang dính ĐƠN ĐẶT BÀN (của Lễ tân).\n\n" +
-                    "👉 Vui lòng vào menu 'Danh sách đặt bàn' bên trái để chuyển Đơn Đặt Bàn này sang trạng thái 'Hoàn thành' hoặc 'Đã hủy' trước khi dọn bàn.", 
-                    "Bảo vệ dữ liệu", JOptionPane.ERROR_MESSAGE);
-                return; 
-            }
-
-            int confirm = JOptionPane.showConfirmDialog(SoDoBanPanel_NVLT.this, "Chuyển bàn " + ban.getTenBan() + " về trạng thái Trống?", "Xác nhận", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) if (banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống")) loadData(txtSearch.getText());
-        });
-
-        btnDatTruoc.addActionListener(e -> {
+        btnDatTruoc.addActionListener(evt -> {
             String strNgay = null; String strGio = null; String strSL = null;
             if (filterThoiGianDat != null) {
                 strNgay = filterThoiGianDat.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
@@ -880,5 +985,103 @@ public class SoDoBanPanel_NVLT extends JPanel {
         DatBanDialog dialog = new DatBanDialog(SwingUtilities.getWindowAncestor(parent), ban, dsCuaBan);
         dialog.setVisible(true);
         loadData(txtSearch.getText());
+    }
+ // Thêm class này vào cuối file của bạn
+    class ScrollablePanel extends JPanel implements Scrollable {
+        public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        
+        // ĐÂY LÀ DÒNG QUAN TRỌNG NHẤT: Ép chiều ngang luôn bằng khung nhìn
+        public boolean getScrollableTracksViewportWidth() { return true; }
+        public boolean getScrollableTracksViewportHeight() { return false; }
+    }
+ // =========================================================================
+    // TÍNH NĂNG MỚI: XỬ LÝ CHUYỂN BÀN
+    // =========================================================================
+ // =========================================================================
+    // TÍNH NĂNG MỚI: XỬ LÝ CHUYỂN BÀN (CÓ CHUYỂN KÈM ĐƠN HÀNG/HÓA ĐƠN)
+    // =========================================================================
+    private void xuLyNutChuyenBan() {
+        List<Ban> dsAll = banDAO.getAllBan();
+        
+        // 1. Lấy danh sách bàn ĐANG DÙNG (để làm Bàn Nguồn)
+        List<Ban> dsTuBan = dsAll.stream()
+            .filter(b -> b.getTrangThai().toLowerCase().contains("dùng") || b.getTrangThai().toLowerCase().contains("sử dụng"))
+            .collect(Collectors.toList());
+
+        if (dsTuBan.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Hiện không có bàn nào đang được sử dụng để chuyển!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // 2. Lấy danh sách bàn TRỐNG và KHÔNG BỊ TRÙNG LỊCH ĐẶT (để làm Bàn Đích)
+        LocalDateTime now = LocalDateTime.now();
+        dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
+        
+        List<Ban> dsDenBan = dsAll.stream()
+            .filter(b -> b.getTrangThai().toLowerCase().contains("trống"))
+            .filter(b -> {
+                boolean biTrungLich = dsDonDatHienTai.stream()
+                    .filter(d -> d.getMaBan().equals(b.getMaBan()) && !d.getTrangThai().equalsIgnoreCase("Đã hủy"))
+                    .anyMatch(d -> {
+                        if (d.getNgayDat().equals(LocalDate.now())) {
+                            LocalDateTime thoiGianDat = LocalDateTime.of(d.getNgayDat(), d.getThoiGian());
+                            long phutConLai = Duration.between(now, thoiGianDat).toMinutes();
+                            return phutConLai > -120 && phutConLai <= 120; // Chặn bàn sắp có khách
+                        }
+                        return false;
+                    });
+                return !biTrungLich; 
+            })
+            .sorted((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe())) 
+            .collect(Collectors.toList());
+
+        if (dsDenBan.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Hiện không có bàn trống nào phù hợp!\n(Hoặc các bàn trống đều đã có khách đặt trước trong 2 giờ tới)", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // 3. Tạo Giao diện chọn bàn
+        JComboBox<String> cbTuBan = new JComboBox<>();
+        for (Ban b : dsTuBan) cbTuBan.addItem(b.getMaBan() + " - " + b.getTenBan() + " (" + b.getSoGhe() + " ghế)");
+
+        JComboBox<String> cbDenBan = new JComboBox<>();
+        for (Ban b : dsDenBan) cbDenBan.addItem(b.getMaBan() + " - " + b.getTenBan() + " (" + b.getSoGhe() + " ghế)");
+
+        JPanel pnl = new JPanel(new GridLayout(2, 2, 10, 15));
+        pnl.add(new JLabel("Chuyển TỪ BÀN (Đang dùng):"));
+        pnl.add(cbTuBan);
+        pnl.add(new JLabel("Đến BÀN MỚI (Trống):"));
+        pnl.add(cbDenBan);
+
+        int result = JOptionPane.showConfirmDialog(this, pnl, "Thao Tác Chuyển Bàn", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String maTuBan = cbTuBan.getSelectedItem().toString().split(" - ")[0];
+            String maDenBan = cbDenBan.getSelectedItem().toString().split(" - ")[0];
+
+            int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận chuyển khách và TOÀN BỘ ĐƠN HÀNG từ " + maTuBan + " sang " + maDenBan + "?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try {
+                    // BƯỚC QUAN TRỌNG: Gọi DAO để chuyển mã bàn trong bảng Hóa Đơn/Order
+                    // Đảm bảo bạn đã viết hàm chuyenBan trong DonDatMon_DAO (Xem hướng dẫn Bước 2)
+                    boolean chuyenBillThanhCong = donDatMonDAO.chuyenBan(maTuBan, maDenBan);
+                    
+                    if (chuyenBillThanhCong) {
+                        // Nếu dời bill thành công thì mới đổi màu (trạng thái) bàn
+                        banDAO.updateTrangThaiBan(maTuBan, "Trống");
+                        banDAO.updateTrangThaiBan(maDenBan, "Đang dùng");
+                        
+                        JOptionPane.showMessageDialog(this, "Chuyển bàn và dời đơn hàng thành công!");
+                        loadData(txtSearch.getText().trim());
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Có lỗi xảy ra: Không tìm thấy hóa đơn chưa thanh toán của bàn " + maTuBan, "Lỗi dữ liệu", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Lỗi hệ thống: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
     }
 }

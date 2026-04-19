@@ -10,20 +10,21 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class DialogTaoDonDat extends JDialog {
     private static final long serialVersionUID = 1L;
     private JTextField txtMaDon, txtMaBan, txtHoTen, txtSdt, txtNgay, txtThoiGian, txtSoLuong, txtGhiChu;
-    private JLabel lblErrorSdt; 
+    private JLabel lblErrorSdt, lblErrorHoTen; 
     private JButton btnLuu, btnHuy;
     private boolean isThanhCong = false;
     private final Color BTN_YELLOW = new Color(255, 209, 102);
 
     public DialogTaoDonDat(Window parent, Ban ban, String ngayLoc, String gioLoc, String soLuongLoc) {
         super(parent, "Tạo Đơn Đặt Bàn", ModalityType.APPLICATION_MODAL);
-        setSize(450, 680); 
+        setSize(450, 700); 
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(Color.WHITE);
@@ -49,8 +50,34 @@ public class DialogTaoDonDat extends JDialog {
         txtMaBan.setEditable(false);
         txtMaBan.setFocusable(false);
 
-        // 3. Họ tên khách hàng
+        // =============================================================
+        // 3. Họ tên khách hàng (ĐÃ THÊM BẮT LỖI KHI RỜI CHUỘT)
+        // =============================================================
         txtHoTen = createStyledTextField("");
+        lblErrorHoTen = new JLabel("* Phải nhập đủ họ tên");
+        lblErrorHoTen.setForeground(Color.RED);
+        lblErrorHoTen.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblErrorHoTen.setVisible(false);
+
+        JPanel pnlHoTenWrapper = new JPanel(new BorderLayout(0, 2));
+        pnlHoTenWrapper.setOpaque(false);
+        pnlHoTenWrapper.add(txtHoTen, BorderLayout.CENTER);
+        pnlHoTenWrapper.add(lblErrorHoTen, BorderLayout.SOUTH);
+
+        txtHoTen.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                validateHoTen(); // Rời chuột đi thì kiểm tra xem có rỗng không
+            }
+
+            @Override
+            public void focusGained(FocusEvent e) {
+                // Trả lại viền xám bình thường khi bấm vào để gõ tiếp
+                txtHoTen.putClientProperty("JComponent.outline", null);
+                txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
+                lblErrorHoTen.setVisible(false);
+            }
+        });
 
         // 4. Số điện thoại (CÓ BẮT LỖI KHI RỜI CHUỘT)
         txtSdt = createStyledTextField("");
@@ -59,22 +86,19 @@ public class DialogTaoDonDat extends JDialog {
         lblErrorSdt.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblErrorSdt.setVisible(false);
 
-        // Bọc txtSdt và label lỗi vào 1 panel để giữ cấu trúc GridLayout
         JPanel pnlSdtWrapper = new JPanel(new BorderLayout(0, 2));
         pnlSdtWrapper.setOpaque(false);
         pnlSdtWrapper.add(txtSdt, BorderLayout.CENTER);
         pnlSdtWrapper.add(lblErrorSdt, BorderLayout.SOUTH);
 
-        // --- ĐÃ SỬA: Chỉ kiểm tra khi rời chuột (mất Focus) ---
         txtSdt.addFocusListener(new FocusAdapter() {
             @Override
             public void focusLost(FocusEvent e) {
-                validateSDT(); // Rời chuột đi thì mới kiểm tra
+                validateSDT(); 
             }
 
             @Override
             public void focusGained(FocusEvent e) {
-                // Khi click chuột vào lại để sửa, tạm thời tắt màu đỏ đi cho đỡ chói mắt
                 txtSdt.putClientProperty("JComponent.outline", null);
                 txtSdt.setBorder(UIManager.getBorder("TextField.border"));
                 lblErrorSdt.setVisible(false);
@@ -99,7 +123,7 @@ public class DialogTaoDonDat extends JDialog {
         // Add vào panel
         pnlContent.add(new JLabel("Mã đơn:"));        pnlContent.add(txtMaDon);
         pnlContent.add(new JLabel("Mã bàn:"));        pnlContent.add(txtMaBan);
-        pnlContent.add(new JLabel("Họ tên:"));         pnlContent.add(txtHoTen);
+        pnlContent.add(new JLabel("Họ tên:"));         pnlContent.add(pnlHoTenWrapper); 
         pnlContent.add(new JLabel("Số điện thoại:"));  pnlContent.add(pnlSdtWrapper); 
         pnlContent.add(new JLabel("Ngày:"));           pnlContent.add(txtNgay);
         pnlContent.add(new JLabel("Thời gian:"));      pnlContent.add(txtThoiGian);
@@ -119,22 +143,46 @@ public class DialogTaoDonDat extends JDialog {
         styleButton(btnHuy, new Color(240, 240, 240));
 
         btnLuu.addActionListener(e -> {
+            
+            // 1. Kiểm tra rỗng
             if(txtHoTen.getText().trim().isEmpty() || txtSdt.getText().trim().isEmpty()) {
+                validateHoTen(); // Chủ động gọi để nháy đỏ các ô rỗng
+                validateSDT();
                 JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Họ tên và Số điện thoại khách!");
                 return;
             }
             
-            // Chặn lưu nếu SĐT gõ sai định dạng
+            // 2. Chặn lưu nếu SĐT gõ sai định dạng
             if (!isValidSDT(txtSdt.getText().trim())) {
                 JOptionPane.showMessageDialog(this, "Số điện thoại không hợp lệ!\nVui lòng nhập đúng 10 số và bắt đầu bằng số 0.", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
-                // Báo lỗi xong thì bôi đỏ và ép con trỏ chuột quay lại ô đó luôn
                 validateSDT(); 
                 txtSdt.requestFocus();
                 return;
             }
 
-            isThanhCong = true;
-            dispose();
+            try {
+                // 3. Lấy thời gian từ text
+                LocalDate ngay = LocalDate.parse(txtNgay.getText().trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                LocalTime gio = LocalTime.parse(txtThoiGian.getText().trim(), DateTimeFormatter.ofPattern("HH:mm"));
+                
+                // ==========================================================
+                // 4. VALIDATE: KIỂM TRA THỜI GIAN TRONG QUÁ KHỨ NGAY TẠI FORM
+                // ==========================================================
+                LocalDateTime thoiGianChon = LocalDateTime.of(ngay, gio);
+                if (thoiGianChon.isBefore(LocalDateTime.now())) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Thời gian đặt bàn không hợp lệ!", 
+                        "Cảnh báo", 
+                        JOptionPane.WARNING_MESSAGE);
+                    return; // Chặn lại, không thực hiện tiếp
+                }
+
+                isThanhCong = true;
+                dispose();
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập ngày giờ đúng định dạng (dd/MM/yyyy và HH:mm)!");
+            }
         });
         
         btnHuy.addActionListener(e -> dispose());
@@ -146,15 +194,28 @@ public class DialogTaoDonDat extends JDialog {
         getRootPane().setDefaultButton(btnLuu);
     }
 
+    // Hàm kiểm tra rỗng của Họ tên
+    private void validateHoTen() {
+        String hoten = txtHoTen.getText().trim();
+        if (hoten.isEmpty()) {
+            txtHoTen.putClientProperty("JComponent.outline", "error");
+            txtHoTen.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
+            lblErrorHoTen.setVisible(true);
+        } else {
+            txtHoTen.putClientProperty("JComponent.outline", null);
+            txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
+            lblErrorHoTen.setVisible(false);
+        }
+    }
+
     // Hàm kiểm tra Regex của SĐT Việt Nam
     private boolean isValidSDT(String sdt) {
         return sdt.matches("^0\\d{9}$");
     }
 
-    // Hàm đổi màu viền khi gõ sai
+    // Hàm đổi màu viền khi SĐT gõ sai
     private void validateSDT() {
         String sdt = txtSdt.getText().trim();
-        // Bỏ qua nếu ô rỗng (chưa nhập gì), hoặc nhập đúng. Chỉ báo đỏ khi nhập sai.
         if (sdt.isEmpty() || isValidSDT(sdt)) {
             txtSdt.putClientProperty("JComponent.outline", null);
             txtSdt.setBorder(UIManager.getBorder("TextField.border"));

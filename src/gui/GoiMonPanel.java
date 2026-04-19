@@ -143,8 +143,11 @@ public class GoiMonPanel extends JPanel {
         // ===== RIGHT PANEL =====
         JPanel pnlRight = new JPanel(new BorderLayout());
         
-        JLabel lblOrderHeader = new JLabel("  Mã đơn: [Tạo tự động]    |    Mã bàn: " + ban.getMaBan());
-        lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        // --- ĐÃ NÂNG CẤP: Lấy đúng mã đơn dự kiến và rút ngắn text chống khuất chữ ---
+        String maDonDuKien = new DonDatMon_DAO().phatSinhMaDon();
+        JLabel lblOrderHeader = new JLabel(" Mã đơn: " + maDonDuKien + "  |  Bàn: " + ban.getMaBan());
+        lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 14)); // Giảm size 1 tí cho vừa khung
+        lblOrderHeader.setHorizontalAlignment(SwingConstants.CENTER);
         lblOrderHeader.setOpaque(true);
         lblOrderHeader.setBackground(new Color(244, 182, 169)); 
         lblOrderHeader.setBorder(BorderFactory.createEmptyBorder(8, 5, 8, 5));
@@ -206,7 +209,6 @@ public class GoiMonPanel extends JPanel {
         card.setPreferredSize(new Dimension(145, 170));
         card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
-        // --- ĐÃ SỬA: Gộp thành 1 dòng duy nhất và thêm chữ 'final' ---
         final boolean isTamNgung = (m.getTrangThai() != null && m.getTrangThai().equalsIgnoreCase("Tạm ngưng"));
 
         if (isTamNgung) {
@@ -327,10 +329,15 @@ public class GoiMonPanel extends JPanel {
             refresh();
         });
 
+        // --- ĐÃ SỬA LỖI NÚT TRỪ Ở ĐÂY ---
         btnMinus.addActionListener(e -> {
-            item.giamSL();
-            if (item.getSoLuong() <= 0) dsOrder.remove(item);
-            refresh();
+            // Kiểm tra: Nếu số lượng đang là 1 thì xóa luôn khỏi giỏ hàng
+            if (item.getSoLuong() <= 1) {
+                dsOrder.remove(item);
+            } else {
+                item.giamSL(); // Ngược lại thì cứ giảm bình thường
+            }
+            refresh(); // Cập nhật lại giao diện
         });
 
         btnDelete.addActionListener(e -> {

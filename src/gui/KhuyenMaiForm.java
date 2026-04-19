@@ -6,14 +6,17 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import dao.KhuyenMai_DAO;
+import dao.MonAn_DAO;
 import entity.DoiTuongKM;
 import entity.KhuyenMai;
+import entity.MonAn;
 
 public class KhuyenMaiForm extends JDialog {
 
@@ -25,12 +28,16 @@ public class KhuyenMaiForm extends JDialog {
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private JLabel lblErrTen, lblErrGiaTri, lblErrNgayBD, lblErrNgayKT, lblErrDoiTuong;
+    private JLabel lblErrTen, lblErrGiaTri, lblErrNgayBD, lblErrNgayKT, lblErrDoiTuong, lblErrMonAn;
     private JTextField txtTen, txtGiaTri, txtNgayBD, txtNgayKT;
     private JComboBox<DoiTuongKM> cbDoiTuong;
     private JComboBox<String> cbHinhThuc;
+    private JComboBox<String> cbMonAn; // ĐÃ THÊM: ComboBox chọn món ăn
     private JButton btnSave;
     private LocalDate ngayBD;
+    
+    private JLabel lblMonAnTitle; // Nãn tiêu đề của món ăn
+    private JPanel pnlMonAn; // Panel chứa ô chọn món
     
     private KhuyenMaiPanel parentPanel;
 
@@ -38,11 +45,12 @@ public class KhuyenMaiForm extends JDialog {
         super(parent, "Thêm khuyến mãi", true);
         this.parentPanel = parentPanel;
         
-        setSize(500, 600);
+        setSize(500, 650); // Tăng chiều cao lên 1 chút để chứa thêm dòng Chọn món
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        JPanel main = new JPanel(new GridLayout(8, 2, 15, 15));
+        // ĐÃ SỬA: Tăng số dòng của GridLayout từ 8 lên 9 để chứa thêm phần Chọn món
+        JPanel main = new JPanel(new GridLayout(9, 2, 15, 15));
         main.setBackground(BG);
         main.setBorder(new EmptyBorder(20, 25, 20, 25));
 
@@ -66,6 +74,28 @@ public class KhuyenMaiForm extends JDialog {
 
         cbDoiTuong = new JComboBox<>(DoiTuongKM.values());
         lblErrDoiTuong = createErrorLabel();
+
+        // --- ĐÃ THÊM: KHỞI TẠO Ô CHỌN MÓN ĂN ---
+        cbMonAn = new JComboBox<>();
+        cbMonAn.addItem("-- Chọn món ăn --");
+        try {
+            List<MonAn> listMon = new MonAn_DAO().getAllMonAnWithActivePrice();
+            for (MonAn m : listMon) {
+                cbMonAn.addItem(m.getMaMon() + " - " + m.getTenMon());
+            }
+        } catch (Exception e) {}
+        
+        lblErrMonAn = createErrorLabel();
+        pnlMonAn = new JPanel(new BorderLayout());
+        pnlMonAn.setBackground(BG);
+        pnlMonAn.add(cbMonAn, BorderLayout.CENTER);
+        pnlMonAn.add(lblErrMonAn, BorderLayout.SOUTH);
+        lblMonAnTitle = createLabel("Món ăn áp dụng");
+
+        // Ẩn đi lúc mới mở Form (Chỉ hiện khi chọn Khách dùng món)
+        lblMonAnTitle.setVisible(false);
+        pnlMonAn.setVisible(false);
+        // ----------------------------------------
 
         main.add(createLabel("Mã khuyến mãi")); main.add(txtMa);
 
@@ -91,6 +121,9 @@ public class KhuyenMaiForm extends JDialog {
         pnlDoiTuong.add(cbDoiTuong, BorderLayout.CENTER); pnlDoiTuong.add(lblErrDoiTuong, BorderLayout.SOUTH);
         main.add(createLabel("Đối tượng áp dụng")); main.add(pnlDoiTuong);
 
+        // Đưa Label và Input Món ăn vào Grid
+        main.add(lblMonAnTitle); main.add(pnlMonAn);
+
         add(main, BorderLayout.CENTER);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10)); btnPanel.setBackground(BG);
@@ -102,7 +135,7 @@ public class KhuyenMaiForm extends JDialog {
         btnCancel.addActionListener(e -> dispose());
         btnSave.addActionListener(e -> saveKhuyenMai(txtMa.getText()));
 
-        // --- CÀI ĐẶT SỰ KIỆN: Lắng nghe lúc gõ chữ (Chỉ kiểm tra ngầm để bật nút Lưu) ---
+        // --- LẮNG NGHE SỰ KIỆN ---
         SimpleListener dl = new SimpleListener(this::checkSaveButton);
         txtTen.getDocument().addDocumentListener(dl);
         txtGiaTri.getDocument().addDocumentListener(dl);
@@ -110,20 +143,29 @@ public class KhuyenMaiForm extends JDialog {
         txtNgayKT.getDocument().addDocumentListener(dl);
         
         cbHinhThuc.addActionListener(e -> { checkGiaTri(true); checkSaveButton(); });
-        cbDoiTuong.addActionListener(e -> { checkDoiTuong(true); checkSaveButton(); });
+        
+        // BẮT SỰ KIỆN HIỂN THỊ ĐỘNG Ô CHỌN MÓN ĂN
+        cbDoiTuong.addActionListener(e -> { 
+            boolean isKhachDungMon = cbDoiTuong.getSelectedItem() != null && 
+                                     cbDoiTuong.getSelectedItem().toString().toLowerCase().contains("món");
+            lblMonAnTitle.setVisible(isKhachDungMon);
+            pnlMonAn.setVisible(isKhachDungMon);
+            
+            checkDoiTuong(true); 
+            checkSaveButton(); 
+        });
 
-        // --- CÀI ĐẶT SỰ KIỆN: Khi người dùng rời chuột khỏi ô mới báo lỗi đỏ ---
+        cbMonAn.addActionListener(e -> checkSaveButton());
+
         txtTen.addFocusListener(new FocusAdapter() { public void focusLost(FocusEvent e) { checkTen(true); } });
         txtGiaTri.addFocusListener(new FocusAdapter() { public void focusLost(FocusEvent e) { checkGiaTri(true); } });
         txtNgayBD.addFocusListener(new FocusAdapter() { public void focusLost(FocusEvent e) { checkNgayBD(true); } });
         txtNgayKT.addFocusListener(new FocusAdapter() { public void focusLost(FocusEvent e) { checkNgayKT(true); } });
 
-        // Gọi 1 lần để nút "Lưu" bị mờ lúc mới mở lên
         checkSaveButton();
     }
 
     private void checkSaveButton() {
-        // Tham số false: Chỉ kiểm tra đúng sai, KHÔNG in ra chữ đỏ
         boolean vTen = checkTen(false);
         boolean vGiaTri = checkGiaTri(false);
         boolean vNgayBD = checkNgayBD(false);
@@ -138,7 +180,7 @@ public class KhuyenMaiForm extends JDialog {
             if (showError) lblErrTen.setText("Tên không được để trống!");
             return false;
         }
-        lblErrTen.setText(" "); // Luôn xóa lỗi nếu đã nhập đúng
+        lblErrTen.setText(" "); 
         return true;
     }
 
@@ -156,7 +198,7 @@ public class KhuyenMaiForm extends JDialog {
                     return false; 
                 }
             }
-            lblErrGiaTri.setText(" "); // Xóa lỗi ngay lập tức khi đang gõ mà đúng
+            lblErrGiaTri.setText(" "); 
             return true;
         } catch (Exception e) { 
             if (showError) lblErrGiaTri.setText("Giá trị phải là số!"); 
@@ -211,7 +253,17 @@ public class KhuyenMaiForm extends JDialog {
             if (showError) lblErrDoiTuong.setText("Phải chọn đối tượng!");
             return false;
         }
+        
+        // Kểm tra ràng buộc: Nếu là "Khách dùng món" thì BẮT BUỘC phải chọn Món ăn
+        boolean isKhachDungMon = cbDoiTuong.getSelectedItem().toString().toLowerCase().contains("món");
+        if (isKhachDungMon && cbMonAn.getSelectedIndex() == 0) {
+            if (showError) lblErrMonAn.setText("Vui lòng chọn món ăn áp dụng!");
+            lblErrDoiTuong.setText(" ");
+            return false;
+        }
+
         lblErrDoiTuong.setText(" ");
+        lblErrMonAn.setText(" ");
         return true;
     }
 
@@ -219,7 +271,18 @@ public class KhuyenMaiForm extends JDialog {
         try {
             KhuyenMai km = new KhuyenMai();
             km.setMaKM(maKM);
-            km.setTenKM(txtTen.getText().trim());
+            
+            // Xử lý thủ thuật: Nếu là Khuyến mãi theo món, tự động gắn tên Món vào tên Khuyến Mãi
+            String tenKM = txtTen.getText().trim();
+            boolean isKhachDungMon = cbDoiTuong.getSelectedItem() != null && 
+                                     cbDoiTuong.getSelectedItem().toString().toLowerCase().contains("món");
+            if (isKhachDungMon && cbMonAn.getSelectedIndex() > 0) {
+                // Cắt lấy tên món (Bỏ cái mã món ở đầu đi)
+                String tenMon = cbMonAn.getSelectedItem().toString().split(" - ")[1];
+                tenKM += " (" + tenMon + ")"; // VD: Sale 50% (Bánh mì)
+            }
+            km.setTenKM(tenKM);
+            
             km.setLoaiKM(cbHinhThuc.getSelectedItem().toString());
             km.setGiaTri(Double.parseDouble(txtGiaTri.getText().trim()));
             km.setNgayBatDau(LocalDate.parse(txtNgayBD.getText().trim(), formatter));

@@ -186,7 +186,7 @@ public class GUIDashBoard extends JFrame {
         btnLogout.addActionListener(e -> {
             if (JOptionPane.showConfirmDialog(this, "Xác nhận đăng xuất?", "Thoát", 0) == 0) {
                 this.dispose(); 
-                // new GUITaiKhoan().setVisible(true); // Mở lại màn hình đăng nhập
+                new GUITaiKhoan().setVisible(true); // Mở lại màn hình đăng nhập
             }
         });
         

@@ -211,8 +211,8 @@ public class DonDatBanDAO {
     }
 
     /**
-     * 7. TỰ ĐỘNG PHÁT SINH MÃ ĐƠN MỚI (Tránh lỗi trùng mã ngày cũ)
-     * Quét toàn bộ CSDL để tìm mã Dxxx lớn nhất.
+     * 7. TỰ ĐỘNG PHÁT SINH MÃ ĐƠN MỚI
+     * ĐÃ FIX LỖI: Cắt bỏ hậu tố (-1, -2) của đơn đặt khối trước khi lấy số lớn nhất
      */
     public String getMaDonTiepTheo() {
         String sql = "SELECT maDon FROM DonDatBan WHERE maDon LIKE 'D%'";
@@ -223,11 +223,18 @@ public class DonDatBanDAO {
              
             while (rs.next()) {
                 String ma = rs.getString(1);
-                if (ma != null && ma.length() > 1) {
+                if (ma != null && ma.startsWith("D")) {
                     try {
-                        int so = Integer.parseInt(ma.substring(1));
-                        if (so > maxSo) maxSo = so;
-                    } catch (Exception ex) {}
+                        // Nâng cấp: Tách bỏ phần "-1", "-2" của các đơn gộp
+                        String baseMa = ma.contains("-") ? ma.substring(0, ma.indexOf("-")) : ma;
+                        
+                        int so = Integer.parseInt(baseMa.substring(1));
+                        if (so > maxSo) {
+                            maxSo = so;
+                        }
+                    } catch (Exception ex) {
+                        // Bỏ qua các mã rác không đúng định dạng
+                    }
                 }
             }
         } catch (Exception e) {

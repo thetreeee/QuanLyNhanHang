@@ -37,6 +37,15 @@ public class SoDoBanPanel extends JPanel {
     public SoDoBanPanel() {
         banDAO = new BanDAO();
         initUI();
+        
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                // Đợi cửa sổ hiển thị xong rồi mới tải bàn để ScrollablePanel hoạt động đúng
+                SwingUtilities.invokeLater(() -> loadData(txtSearch.getText().trim()));
+            }
+        });
+        
         loadData("");
     }
 
@@ -50,13 +59,13 @@ public class SoDoBanPanel extends JPanel {
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
         topWrapper.setOpaque(false);
 
-        // --- 1. BANNER THỜI GIAN (Dùng LocalDateTime ép chuẩn Tiếng Việt) ---
+        // --- 1. BANNER THỜI GIAN ---
         JPanel timeBanner = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         timeBanner.setBackground(new Color(255, 246, 246));
         timeBanner.putClientProperty("FlatLaf.style", "arc: 15");
 
         lblTimeDate = new JLabel();
-        lblTimeDate.setFont(new Font("Segoe UI", Font.PLAIN, 15)); // Chữ đậm như KhuyenMaiPanel
+        lblTimeDate.setFont(new Font("Segoe UI", Font.PLAIN, 15)); 
         lblTimeDate.setForeground(Color.BLACK);
         
         Locale localeVI = new Locale("vi", "VN");
@@ -90,7 +99,6 @@ public class SoDoBanPanel extends JPanel {
             public void changedUpdate(DocumentEvent e) { loadData(txtSearch.getText()); }
         });
 
-        // Nút thêm giống y hệt màu KhuyenMaiPanel
         JButton btnThem = new JButton("+ Thêm bàn mới");
         btnThem.setBackground(new Color(255, 209, 102)); 
         btnThem.setForeground(Color.BLACK);
@@ -136,17 +144,24 @@ public class SoDoBanPanel extends JPanel {
         pnlFilterBar.add(pnlStatus, BorderLayout.EAST);
 
         topWrapper.add(pnlFilterBar);
-
         add(topWrapper, BorderLayout.NORTH);
 
-        // --- 4. CENTER (HIỂN THỊ DANH SÁCH BÀN) ---
-        pnlDanhSachBan = new JPanel();
-        pnlDanhSachBan.setLayout(new BoxLayout(pnlDanhSachBan, BoxLayout.Y_AXIS));
+        // =====================================================================
+        // GIẢI PHÁP ĐỘC QUYỀN: Dùng GridBagLayout + ScrollablePanel 
+        // =====================================================================
+        pnlDanhSachBan = new ScrollablePanel(); 
+        pnlDanhSachBan.setLayout(new GridBagLayout()); // Dùng GridBag để tránh lỗi kẹp dòng
         pnlDanhSachBan.setOpaque(false);
+        
         JScrollPane scrollPane = new JScrollPane(pnlDanhSachBan);
         scrollPane.setBorder(null);
+        scrollPane.setViewportBorder(null);
         scrollPane.getViewport().setBackground(Color.WHITE);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        
+        // Cấm tuyệt đối trượt ngang
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        
         add(scrollPane, BorderLayout.CENTER);
     }
 
@@ -201,10 +216,18 @@ public class SoDoBanPanel extends JPanel {
 
     public void loadData(String query) {
         pnlDanhSachBan.removeAll();
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
         List<Ban> dsAll = banDAO.getAllBan();
         String[] dsKhuVuc = {"Ngoài trời", "Phòng VIP", "Tầng 1", "Tầng 2"};
         for (String khuVuc : dsKhuVuc) {
             if (!floorFilter.equals("Tất cả") && !floorFilter.equalsIgnoreCase(khuVuc)) continue;
+            
             List<Ban> dsTheoKV = dsAll.stream()
                 .filter(b -> {
                     String viTriDB = b.getViTri().trim().toLowerCase();
@@ -219,19 +242,41 @@ public class SoDoBanPanel extends JPanel {
                     if (statusFilter.equals("Đã đặt")) return tt.contains("đặt");
                     if (statusFilter.equals("Trống")) return tt.contains("trống");
                     return tt.contains(statusFilter.toLowerCase());
-                }).collect(Collectors.toList());
+                })
+                .sorted((b1, b2) -> Integer.compare(b1.getSoGhe(), b2.getSoGhe())) // Sắp xếp bàn nhỏ đến lớn
+                .collect(Collectors.toList());
+
             if (!dsTheoKV.isEmpty()) {
-                JLabel lblKV = new JLabel(khuVuc.toUpperCase());
-                lblKV.setFont(new Font("Segoe UI", Font.BOLD, 16));
-                lblKV.setBorder(new EmptyBorder(10, 5, 10, 0));
-                pnlDanhSachBan.add(lblKV);
+                JPanel pnlKVTitle = new JPanel(new FlowLayout(FlowLayout.LEFT));
+                pnlKVTitle.setOpaque(false);
+                JLabel lblKV = new JLabel("--- " + khuVuc.toUpperCase() + " ---");
+                lblKV.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                lblKV.setForeground(new Color(150, 50, 50));
+                lblKV.setBorder(new EmptyBorder(10, 10, 5, 0));
+                pnlKVTitle.add(lblKV);
+                
+                gbc.gridy++; 
+                pnlDanhSachBan.add(pnlKVTitle, gbc);
                 
                 JPanel pnlGrid = new JPanel(new WrapLayout(FlowLayout.LEFT, 20, 20));
                 pnlGrid.setOpaque(false);
-                for (Ban b : dsTheoKV) pnlGrid.add(taoTheBan(b));
-                pnlDanhSachBan.add(pnlGrid);
+                for (Ban b : dsTheoKV) {
+                    pnlGrid.add(taoTheBan(b));
+                }
+                
+                gbc.gridy++; 
+                pnlDanhSachBan.add(pnlGrid, gbc);
             }
         }
+        
+        // Đệm dưới cùng (Filler): Đẩy tất cả các tầng lên sát phía trên
+        gbc.gridy++;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        JPanel filler = new JPanel();
+        filler.setOpaque(false);
+        pnlDanhSachBan.add(filler, gbc);
+
         pnlDanhSachBan.revalidate(); 
         pnlDanhSachBan.repaint();
     }
@@ -306,5 +351,14 @@ public class SoDoBanPanel extends JPanel {
             }
         });
         return card;
+    }
+
+    // Thêm class này để ép Panel luôn bám sát chiều ngang của thanh cuộn
+    class ScrollablePanel extends JPanel implements Scrollable {
+        @Override public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+        @Override public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        @Override public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) { return 20; }
+        @Override public boolean getScrollableTracksViewportHeight() { return false; }
+        @Override public boolean getScrollableTracksViewportWidth() { return true; }
     }
 }
