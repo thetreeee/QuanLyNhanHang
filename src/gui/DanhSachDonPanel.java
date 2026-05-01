@@ -83,7 +83,7 @@ public class DanhSachDonPanel extends JPanel {
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         searchPanel.setOpaque(false);
 
-        searchPanel.add(new JLabel("Tìm theo mã bàn:"));
+        searchPanel.add(new JLabel("Tìm theo mã bàn, mã đơn:"));
 
         txtSearch = new JTextField(20);
         txtSearch.setPreferredSize(new Dimension(250, 35));
@@ -150,47 +150,56 @@ public class DanhSachDonPanel extends JPanel {
         });
     }
 
-    // ===== LOAD DATA =====
+    // ==============================================================
+    // ĐÃ SỬA: LOGIC HIỂN THỊ "HÔM NAY" HOẶC "TÌM TOÀN BỘ"
+    // ==============================================================
     public void loadData(String keyword) {
         model.setRowCount(0);
         List<DonDatMon> ds = new ArrayList<>();
 
         try {
-            ds = donDAO.getAll();
+            ds = donDAO.getAll(); // Lấy tất cả từ DB
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         LocalDate homNay = LocalDate.now();
+        String key = keyword.toLowerCase();
 
         for (DonDatMon d : ds) {
-            
-            // --- LỌC ĐƠN HÔM NAY ---
             LocalDate ngayCuaDon = d.getThoiGianDat().toLocalDate();
-            if (!ngayCuaDon.equals(homNay)) {
-                continue;
-            }
-
-            // --- NÂNG CẤP LỌC TÌM KIẾM: QUÉT CẢ MÃ BÀN VÀ GHI CHÚ ---
             String maBan = d.getMaBan() != null ? d.getMaBan().toLowerCase() : "";
-            String ghiChu = (d.getGhiChu() != null) ? d.getGhiChu().toLowerCase() : "";
-            String key = keyword.toLowerCase();
+            String ghiChu = d.getGhiChu() != null ? d.getGhiChu().toLowerCase() : "";
+            String maDon = d.getMaDonDat() != null ? d.getMaDonDat().toLowerCase() : "";
+            String maNhanVienTrongDon = d.getMaNV() != null ? d.getMaNV().toLowerCase() : "";
 
-            // Nếu ô tìm kiếm có chữ, VÀ chữ đó KHÔNG NẰM TRONG Mã Bàn, VÀ CŨNG KHÔNG NẰM TRONG Ghi Chú -> Bỏ qua
-            if (!keyword.isEmpty() && !maBan.contains(key) && !ghiChu.contains(key)) {
-                continue;
+            boolean isMatch = false;
+
+            if (key.isEmpty()) {
+                // Nếu rỗng -> CHỈ lọc những đơn gọi món của ngày HÔM NAY
+                if (ngayCuaDon.equals(homNay)) {
+                    isMatch = true;
+                }
+            } else {
+                // Nếu có gõ chữ -> Quét trên TẤT CẢ dữ liệu (mã đơn, mã bàn, ghi chú, mã NV)
+                if (maBan.contains(key) || maDon.contains(key) || ghiChu.contains(key) || maNhanVienTrongDon.contains(key)) {
+                    isMatch = true;
+                }
             }
 
-            String ngayDinhDang = d.getThoiGianDat().format(dtf);
-            
-            model.addRow(new Object[]{
-                    "x", 
-                    d.getMaDonDat(), 
-                    d.getMaBan(), 
-                    ngayDinhDang, 
-                    d.getGhiChu(), 
-                    d.getMaNV() 
-            });
+            // Nếu khớp điều kiện thì mới vẽ ra bảng
+            if (isMatch) {
+                String ngayDinhDang = d.getThoiGianDat().format(dtf);
+                
+                model.addRow(new Object[]{
+                        "x", 
+                        d.getMaDonDat(), 
+                        d.getMaBan(), 
+                        ngayDinhDang, 
+                        d.getGhiChu(), 
+                        d.getMaNV() 
+                });
+            }
         }
     }
 

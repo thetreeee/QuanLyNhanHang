@@ -559,7 +559,7 @@ public class SoDoBanPanel_NVLT extends JPanel {
                         for (DonDatBan don : dsDonDatHienTai) {
                             if (don.getMaBan().equals(b.getMaBan()) && !don.getTrangThai().equalsIgnoreCase("Đã hủy")) {
                                 LocalDateTime thoiGianDat = LocalDateTime.of(don.getNgayDat(), don.getThoiGian());
-                                long phutTre = java.time.Duration.between(thoiGianDat, now).toMinutes();
+                                long phutTre = Duration.between(thoiGianDat, now).toMinutes();
                                 if (phutTre > 15) return true;
                             }
                         }
@@ -571,28 +571,55 @@ public class SoDoBanPanel_NVLT extends JPanel {
                     return tt.equalsIgnoreCase(statusFilter);
                 })
                 .filter(b -> {
-                    // 1. Lọc theo số lượng khách
+                    // ======================================================================
+                    // 1. Lọc theo form ĐẶT BÀN TRƯỚC (Nút Đặt Bàn)
+                    // ======================================================================
                     if (filterSoLuongKhach != null && !isGopBanMode) {
                         int minSize = (filterSoLuongKhach % 2 == 0) ? filterSoLuongKhach : filterSoLuongKhach + 1;
                         if (b.getSoGhe() < minSize) return false;
                     }
                     
-                    // ======================================================================
-                    // 2. ĐÃ SỬA LỖI: Lọc ẩn luôn các bàn bị trùng lịch trong vòng 2 tiếng
-                    // ======================================================================
                     if (filterThoiGianDat != null && !isGopBanMode) {
                         LocalDate filterNgay = filterThoiGianDat.toLocalDate();
                         LocalTime filterGio = filterThoiGianDat.toLocalTime();
                         
                         for (DonDatBan don : dsDonDatHienTai) {
-                            // Nếu bàn đang xét trùng mã với một đơn đặt nào đó chưa bị hủy
                             if (don.getMaBan().equals(b.getMaBan()) && !don.getTrangThai().equalsIgnoreCase("Đã hủy")) {
-                                // Và cùng ngày đặt
                                 if (don.getNgayDat().equals(filterNgay)) {
-                                    // Kiểm tra khoảng cách giờ
                                     long diff = Math.abs(Duration.between(don.getThoiGian(), filterGio).toMinutes());
-                                    if (diff < 120) {
-                                        return false; // Ẩn luôn bàn này khỏi sơ đồ!
+                                    if (diff < 120) return false; // Trùng lịch trong 2 tiếng
+                                }
+                            }
+                        }
+                    }
+
+                    // ======================================================================
+                    // 2. Lọc theo Ô TÌM KIẾM NHANH (Số ghế... dành cho khách vãng lai)
+                    // ======================================================================
+                    if (finalWalkInSeats != null && !isGopBanMode) {
+                        // Tính số ghế mục tiêu (quy số lẻ thành chẵn, vd: đi 3 người thì cho xem bàn 4)
+                        int targetSeats = (finalWalkInSeats % 2 != 0) ? finalWalkInSeats + 1 : finalWalkInSeats;
+                        
+                        // Lọc bàn có số ghế bằng target hoặc trên 1 bậc (+2 ghế)
+                        if (!(b.getSoGhe() == targetSeats || b.getSoGhe() == targetSeats + 2)) {
+                            return false;
+                        }
+
+                        // Vì là tìm bàn vãng lai -> Ẩn ngay lập tức các bàn Đã Đặt, Đang Dùng, Quá Hạn
+                        String tt = b.getTrangThai().toLowerCase();
+                        if (tt.contains("đặt") || tt.contains("dùng") || tt.contains("sử dụng") || tt.contains("quá hạn")) {
+                            return false;
+                        }
+
+                        // Lớp khiên bảo vệ: Nếu bàn trống nhưng sắp có khách Đặt Trước đến nhận (trong 2 giờ tới) -> Ẩn luôn!
+                        LocalDateTime now = LocalDateTime.now();
+                        for (DonDatBan don : dsDonDatHienTai) {
+                            if (don.getMaBan().equals(b.getMaBan()) && !don.getTrangThai().equalsIgnoreCase("Đã hủy")) {
+                                if (don.getNgayDat().equals(LocalDate.now())) {
+                                    LocalDateTime thoiGianDat = LocalDateTime.of(don.getNgayDat(), don.getThoiGian());
+                                    long phutConLai = Duration.between(now, thoiGianDat).toMinutes();
+                                    if (phutConLai > -120 && phutConLai <= 120) {
+                                        return false; 
                                     }
                                 }
                             }
@@ -605,7 +632,6 @@ public class SoDoBanPanel_NVLT extends JPanel {
                 .collect(Collectors.toList());
 
             if (!dsTheoKV.isEmpty()) {
-                // 1. Thêm Tiêu Đề Khu Vực
                 JPanel pnlKVTitle = new JPanel(new FlowLayout(FlowLayout.LEFT));
                 pnlKVTitle.setOpaque(false);
                 JLabel lblKV = new JLabel("--- " + khuVuc.toUpperCase() + " ---");
@@ -614,22 +640,21 @@ public class SoDoBanPanel_NVLT extends JPanel {
                 lblKV.setBorder(new EmptyBorder(10, 10, 5, 0));
                 pnlKVTitle.add(lblKV);
                 
-                gbc.gridy++; // Xuống dòng
+                gbc.gridy++; 
                 pnlDanhSachBan.add(pnlKVTitle, gbc);
                 
-                // 2. Thêm Lưới Bàn
                 JPanel pnlGrid = new JPanel(new WrapLayout(FlowLayout.LEFT, 20, 20));
                 pnlGrid.setOpaque(false);
                 for (Ban b : dsTheoKV) {
                     pnlGrid.add(taoTheBan(b));
                 }
                 
-                gbc.gridy++; // Xuống dòng
+                gbc.gridy++; 
                 pnlDanhSachBan.add(pnlGrid, gbc);
             }
         }
         
-        // 3. Đệm dưới cùng (Filler): Đẩy tất cả các tầng lên sát phía trên
+        // Đệm dưới cùng (Filler): Đẩy tất cả các tầng lên sát phía trên
         gbc.gridy++;
         gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.BOTH;

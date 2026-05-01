@@ -10,6 +10,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class DialogChiTietDonDat extends JDialog {
     private static final long serialVersionUID = 1L;
@@ -19,8 +20,7 @@ public class DialogChiTietDonDat extends JDialog {
     private DefaultTableModel modelChiTiet;
     private JButton btnCapNhat, btnHuy;
 
-    // ĐÃ NÂNG CẤP: Bổ sung tham số 'maBan' vào đây để bảng lấy dữ liệu thật
-    public DialogChiTietDonDat(Window parent, String maDon, String maBan, String ngayDat, String thoiGian, String trangThai, String khachHang) {
+    public DialogChiTietDonDat(Window parent, String maDon, String maBan, String ngayDat, String thoiGian, String trangThai, String khachHang, String soLuong) {
         super(parent, "Chi Tiết Đơn Đặt Bàn", ModalityType.APPLICATION_MODAL);
         setSize(800, 600); 
         setLocationRelativeTo(parent);
@@ -101,11 +101,10 @@ public class DialogChiTietDonDat extends JDialog {
 
         String[] cols = {"Mã Bàn", "Số lượng khách dự kiến"}; 
         
-        // --- YÊU CẦU 2: KHÓA BẢNG KHÔNG CHO CHỈNH SỬA ---
         modelChiTiet = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Tuyệt đối không cho sửa trực tiếp trên ô
+                return false; 
             }
         };
         
@@ -120,8 +119,16 @@ public class DialogChiTietDonDat extends JDialog {
             tableChiTiet.getColumnModel().getColumn(i).setCellRenderer(centerRender);
         }
 
-        // Add dữ liệu bàn lấy từ tham số truyền vào
-        modelChiTiet.addRow(new Object[]{maBan, "Chưa xác định"});
+        // =========================================================
+        // ĐÃ NÂNG CẤP: GỌI DB ĐỂ LẤY TOÀN BỘ BÀN CỦA ĐƠN NÀY ĐỔ VÀO
+        // =========================================================
+        DonDatBanDAO dao = new DonDatBanDAO();
+        List<Object[]> danhSachBan = dao.getChiTietBanCuaDon(maDon);
+        
+        for (Object[] row : danhSachBan) {
+            modelChiTiet.addRow(row);
+        }
+        // =========================================================
 
         JScrollPane scroll = new JScrollPane(tableChiTiet);
         scroll.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); 
@@ -151,7 +158,6 @@ public class DialogChiTietDonDat extends JDialog {
 
         btnHuy.addActionListener(e -> dispose());
 
-        // --- YÊU CẦU 1 & 3: XỬ LÝ NÚT CẬP NHẬT ---
         btnCapNhat.addActionListener(e -> {
             String trangThaiMoi = cbTrangThai.getSelectedItem().toString();
             String maDonHienTai = txtMaDon.getText().trim();
@@ -162,17 +168,16 @@ public class DialogChiTietDonDat extends JDialog {
             // 1. Lưu trạng thái mới của đơn xuống DB
             if (donDAO.updateTrangThaiCuaDon(maDonHienTai, trangThaiMoi)) {
                 
-                // 2. Chỉnh màu/trạng thái của Bàn tương ứng
+                // 2. Vòng lặp này sẽ tự động cập nhật đổi màu trạng thái cho TẤT CẢ các bàn có trong bảng
                 for (int i = 0; i < modelChiTiet.getRowCount(); i++) {
                     String banTrongDon = modelChiTiet.getValueAt(i, 0).toString();
                     
                     if (trangThaiMoi.equals("Đã hủy")) {
-                        banDao.updateTrangThaiBan(banTrongDon, "Trống"); // Trả về màu Xanh
+                        banDao.updateTrangThaiBan(banTrongDon, "Trống"); 
                     } else if (trangThaiMoi.equals("Đang dùng")) {
-                        banDao.updateTrangThaiBan(banTrongDon, "Đang dùng"); // Trả về màu Đỏ
+                        banDao.updateTrangThaiBan(banTrongDon, "Đang dùng"); 
                     } else if (trangThaiMoi.equals("Đã đặt")) {
                         DateTimeFormatter fNgay = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                        // Nếu là đơn đặt cho hôm nay thì mới khóa màu Vàng
                         if (txtNgayDat.getText().trim().equals(LocalDate.now().format(fNgay))) {
                             banDao.updateTrangThaiBan(banTrongDon, "Đã đặt");
                         }
@@ -180,7 +185,7 @@ public class DialogChiTietDonDat extends JDialog {
                 }
                 
                 JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
-                dispose(); // Đóng form
+                dispose(); 
             } else {
                 JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi cập nhật!");
             }

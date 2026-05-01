@@ -2,6 +2,7 @@ package gui;
 
 import dao.BanDAO;
 import dao.DonDatBanDAO;
+import entity.Ban;
 import entity.DonDatBan;
 
 import javax.swing.*;
@@ -148,7 +149,7 @@ public class DanhSachDatBanPanel extends JPanel {
 
                 if (value != null) {
                     String stt = value.toString();
-                    if (stt.equalsIgnoreCase("Checked-in")) {
+                    if (stt.equalsIgnoreCase("Checked-in") || stt.equalsIgnoreCase("Đang dùng")) {
                         setForeground(new Color(40, 167, 69)); // Xanh lá
                         setFont(new Font("Segoe UI", Font.BOLD, 14));
                     } else if (stt.equalsIgnoreCase("Hoàn thành")) {
@@ -174,7 +175,7 @@ public class DanhSachDatBanPanel extends JPanel {
         });
 
         // ==============================================================
-        // ĐÃ SỬA: COMBOBOX THÔNG MINH DÀNH CHO CỘT TRẠNG THÁI
+        // COMBOBOX THÔNG MINH ĐÃ BỎ "HOÀN THÀNH" KHỎI QUYỀN CỦA LỄ TÂN
         // ==============================================================
         JComboBox<String> cbTrangThai = new JComboBox<>();
         cbTrangThai.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -184,17 +185,15 @@ public class DanhSachDatBanPanel extends JPanel {
             @Override
             public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
                 String currentStatus = (value != null) ? value.toString() : "";
-                cbTrangThai.removeAllItems(); // Xóa sạch danh sách cũ
+                cbTrangThai.removeAllItems(); 
 
-                // 1. Phân quyền chốt cứng: Khách đã ăn xong hoặc đã hủy thì KHÔNG cho đổi nữa
                 if (currentStatus.equalsIgnoreCase("Hoàn thành") || currentStatus.equalsIgnoreCase("Đã hủy")) {
-                    cbTrangThai.addItem(currentStatus); 
+                    cbTrangThai.addItem(currentStatus); // Đã chốt thì không cho lùi
                 } 
-                // 2. Nếu khách đang ngồi ở bàn (Checked-in / Đang dùng) -> Chờ Thanh Toán, không cho Lễ tân sửa
                 else if (currentStatus.equalsIgnoreCase("Checked-in") || currentStatus.equalsIgnoreCase("Đang dùng")) {
                     cbTrangThai.addItem(currentStatus); 
+                    cbTrangThai.addItem("Đã hủy"); // Khách bỏ về ngang (Tuyệt đối không có "Hoàn thành" ở đây)
                 } 
-                // 3. Nếu khách chưa tới (Đang chờ / Đã đặt) -> Chỉ cho phép Lễ tân đổi qua lại hoặc báo Hủy
                 else {
                     cbTrangThai.addItem("Đã đặt");
                     cbTrangThai.addItem("Đã hủy"); 
@@ -233,23 +232,37 @@ public class DanhSachDatBanPanel extends JPanel {
                                     "Cảnh báo trùng lịch", JOptionPane.WARNING_MESSAGE);
                                 
                                 isUpdatingTable = true;
-                                model.setValueAt(currentDon.getTrangThai(), row, 4); // Trả về trạng thái cũ
+                                model.setValueAt(currentDon.getTrangThai(), row, 4); 
                                 isUpdatingTable = false;
                                 return; 
                             }
                         }
 
-                        // Cập nhật CSDL
+                        // Cập nhật trạng thái đơn trong CSDL
                         donDatBanDAO.updateTrangThaiCuaDon(maDon, trangThaiMoi);
 
-                        // Cập nhật trạng thái mặt bàn trên sơ đồ
+                        // DỌN DẸP BÀN, CẮT CHUỖI VÀ GIẢI TÁN KHỐI NẾU HỦY/HOÀN THÀNH
                         if (trangThaiMoi.equals("Đã hủy") || trangThaiMoi.equals("Hoàn thành")) {
-                            banDAO.updateTrangThaiBan(maBan, "Trống"); 
-                        } else if (trangThaiMoi.equals("Đang dùng") || trangThaiMoi.equals("Checked-in")) {
-                            banDAO.updateTrangThaiBan(maBan, "Đang dùng"); 
-                        } else if (trangThaiMoi.equals("Đã đặt")) {
+                            String[] arrBan = maBan.split(", ");
+                            List<Ban> dsAllBan = banDAO.getAllBan(); 
+                            
+                            for (String mb : arrBan) {
+                                Ban b = dsAllBan.stream().filter(tb -> tb.getMaBan().equals(mb)).findFirst().orElse(null);
+                                if (b != null && b.getMaKhoi() != null && b.getMaKhoi() > 0) {
+                                    banDAO.giaiTanKhoi(b.getMaKhoi()); // Xóa liên kết khối
+                                } else {
+                                    banDAO.updateTrangThaiBan(mb, "Trống"); // Trả bàn lẻ về màu xanh
+                                }
+                            }
+                        } 
+                        else if (trangThaiMoi.equals("Đang dùng") || trangThaiMoi.equals("Checked-in")) {
+                            String[] arrBan = maBan.split(", ");
+                            for (String mb : arrBan) banDAO.updateTrangThaiBan(mb, "Đang dùng"); 
+                        } 
+                        else if (trangThaiMoi.equals("Đã đặt")) {
                             if (currentDon.getNgayDat().equals(LocalDate.now())) {
-                                banDAO.updateTrangThaiBan(maBan, "Đã đặt"); 
+                                String[] arrBan = maBan.split(", ");
+                                for (String mb : arrBan) banDAO.updateTrangThaiBan(mb, "Đã đặt"); 
                             }
                         }
                     }
@@ -277,10 +290,12 @@ public class DanhSachDatBanPanel extends JPanel {
                         DateTimeFormatter fGio = DateTimeFormatter.ofPattern("HH:mm");
                         String ngayDat = donDuocChon.getNgayDat().format(fNgay);
                         String gioDat = donDuocChon.getThoiGian().format(fGio);
+                        
+                        String soLuong = String.valueOf(donDuocChon.getSoLuongKhach());
 
                         DialogChiTietDonDat dialog = new DialogChiTietDonDat(
                             SwingUtilities.getWindowAncestor(DanhSachDatBanPanel.this),
-                            maDon, maBan, ngayDat, gioDat, trangThai, khachHang
+                            maDon, maBan, ngayDat, gioDat, trangThai, khachHang, soLuong
                         );
                         dialog.setVisible(true);
                         
@@ -309,16 +324,29 @@ public class DanhSachDatBanPanel extends JPanel {
 
     public void loadData(String query) {
         model.setRowCount(0);
-        dsDonDatHienTai = donDatBanDAO.getAllDonDat();
+        dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
         
         String keyword = query.toLowerCase();
+        LocalDate today = LocalDate.now();
 
         for (DonDatBan d : dsDonDatHienTai) {
             String tenKH = d.getTenKhachHang() != null ? d.getTenKhachHang() : "Khách vãng lai";
             String sdt = d.getSoDienThoai() != null ? d.getSoDienThoai() : "";
             String maDon = d.getMaDon();
             
-            if (tenKH.toLowerCase().contains(keyword) || maDon.toLowerCase().contains(keyword) || sdt.contains(keyword)) {
+            boolean isMatch = false;
+
+            if (keyword.isEmpty()) {
+                if (d.getNgayDat() != null && d.getNgayDat().equals(today)) {
+                    isMatch = true;
+                }
+            } else {
+                if (tenKH.toLowerCase().contains(keyword) || maDon.toLowerCase().contains(keyword) || sdt.contains(keyword)) {
+                    isMatch = true;
+                }
+            }
+
+            if (isMatch) {
                 model.addRow(new Object[]{
                     maDon,
                     d.getMaBan(),

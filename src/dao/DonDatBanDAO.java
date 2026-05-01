@@ -9,14 +9,12 @@ import java.util.List;
 public class DonDatBanDAO {
 
     /**
-     * 1. Lấy tất cả đơn đặt bàn (JOIN 3 bảng: DonDatBan, ChiTietDatBan, KhachHang)
-     * ĐÃ CẬP NHẬT: Lọc bỏ các đơn trong quá khứ, chỉ lấy đơn từ ngày hiện tại trở đi và sắp xếp thời gian.
+     * 1. LẤY TẤT CẢ ĐƠN ĐẶT BÀN (ĐÃ GỘP NHIỀU BÀN THÀNH 1 DÒNG)
+     * Dùng LinkedHashMap để tự động gộp các đơn trùng nhau mà vẫn giữ nguyên thứ tự thời gian
      */
     public List<DonDatBan> getAllDonDat() {
-        List<DonDatBan> ds = new ArrayList<>();
+        java.util.Map<String, DonDatBan> mapDon = new java.util.LinkedHashMap<>();
         
-        // Thêm WHERE d.ngayDat >= CONVERT(DATE, GETDATE()) để chặn đơn cũ
-        // Thêm ORDER BY để danh sách hiển thị theo thứ tự thời gian từ sớm đến muộn
         String sql = "SELECT d.maDon, d.ngayDat, d.thoiGian, d.trangThai, c.maBan, c.soLuongKhach, " +
                      "k.hoTen, k.soDienThoai " +
                      "FROM DonDatBan d " +
@@ -30,39 +28,52 @@ public class DonDatBanDAO {
              ResultSet rs = stmt.executeQuery(sql)) {
              
             while (rs.next()) {
-                DonDatBan don = new DonDatBan(
-                    rs.getString("maDon"),
-                    rs.getString("maBan"), 
-                    rs.getDate("ngayDat").toLocalDate(),
-                    rs.getTimestamp("thoiGian").toLocalDateTime().toLocalTime(),
-                    rs.getInt("soLuongKhach"),
-                    "", // Ghi chú mặc định trống do SQL chưa có cột này
-                    // ĐÃ SỬA: Mặc định hiển thị là "Đã đặt" nếu rỗng
-                    rs.getString("trangThai") != null ? rs.getString("trangThai") : "Đã đặt"
-                );
-                
-                // Gán thông tin khách hàng vào đối tượng để hiển thị lên JTable
-                don.setTenKhachHang(rs.getString("hoTen") != null ? rs.getString("hoTen") : "Khách vãng lai");
-                don.setSoDienThoai(rs.getString("soDienThoai") != null ? rs.getString("soDienThoai") : "");
-                
-                ds.add(don);
+                String maDon = rs.getString("maDon");
+                String maBan = rs.getString("maBan");
+                int soKhachCuaBan = rs.getInt("soLuongKhach");
+
+                if (mapDon.containsKey(maDon)) {
+                    // NẾU ĐƠN ĐÃ CÓ TRONG MAP -> Lấy ra, cộng dồn mã bàn và số khách
+                    DonDatBan donCu = mapDon.get(maDon);
+                    donCu.setMaBan(donCu.getMaBan() + ", " + maBan);
+                    donCu.setSoLuongKhach(donCu.getSoLuongKhach() + soKhachCuaBan);
+                } else {
+                    // NẾU LÀ ĐƠN MỚI -> Tạo đối tượng và đưa vào Map
+                    DonDatBan donMoi = new DonDatBan(
+                        maDon,
+                        maBan, 
+                        rs.getDate("ngayDat").toLocalDate(),
+                        rs.getTimestamp("thoiGian").toLocalDateTime().toLocalTime(),
+                        soKhachCuaBan,
+                        "", // Ghi chú mặc định trống
+                        rs.getString("trangThai") != null ? rs.getString("trangThai") : "Đã đặt"
+                    );
+                    
+                    donMoi.setTenKhachHang(rs.getString("hoTen") != null ? rs.getString("hoTen") : "Khách vãng lai");
+                    donMoi.setSoDienThoai(rs.getString("soDienThoai") != null ? rs.getString("soDienThoai") : "");
+                    
+                    mapDon.put(maDon, donMoi);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return ds;
+        
+        // Rút xuất danh sách từ Map ra trả về cho giao diện
+        return new ArrayList<>(mapDon.values());
     }
 
     /**
-     * 2. Thêm đơn đặt mới (Dùng Transaction để lưu đồng thời vào KhachHang, DonDatBan, ChiTietDatBan)
+     * 2. TẠO ĐƠN ĐẶT BÀN MỚI (CHUẨN 1-N CỦA THẦY)
+     * Sử dụng Transaction để lưu vào 3 bảng: KhachHang -> DonDatBan -> ChiTietDatBan
      */
-    public boolean insertDonDat(DonDatBan don) {
+    public boolean insertDonDat(DonDatBan don, List<String> danhSachMaBan) {
         Connection con = null;
         try {
             con = SQLConnection.getConnection();
-            con.setAutoCommit(false); // Bắt đầu Transaction
+            con.setAutoCommit(false); // Bật Transaction
 
-            // --- BƯỚC A: Tạo và lưu Khách Hàng mới ---
+            // --- BƯỚC A: Lưu Khách Hàng ---
             String maKH = "KH" + (System.currentTimeMillis() % 1000000); 
             String sqlKH = "INSERT INTO KhachHang (maKhachHang, hoTen, soDienThoai) VALUES (?, ?, ?)";
             try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
@@ -72,36 +83,42 @@ public class DonDatBanDAO {
                 psKH.executeUpdate();
             }
 
-            // --- BƯỚC B: Lưu vào bảng DonDatBan ---
-            // ĐÃ SỬA: Bổ sung thêm cột trangThai vào câu lệnh INSERT và gán cứng là "Đã đặt"
+            // --- BƯỚC B: Lưu DonDatBan (Chỉ tạo DUY NHẤT 1 DÒNG) ---
             String sqlDon = "INSERT INTO DonDatBan (maDon, ngayDat, thoiGian, maKhachHang, maNV, trangThai) VALUES (?, ?, ?, ?, ?, ?)";
             try (PreparedStatement psDon = con.prepareStatement(sqlDon)) {
                 psDon.setString(1, don.getMaDon());
                 psDon.setDate(2, Date.valueOf(don.getNgayDat()));
                 psDon.setTimestamp(3, Timestamp.valueOf(don.getNgayDat().atTime(don.getThoiGian())));
                 psDon.setString(4, maKH); 
-                psDon.setString(5, null); // maNV để null tạm thời
-                psDon.setString(6, "Đã đặt"); // <--- MỚI: Thêm trực tiếp trạng thái "Đã đặt" vào DB
+                psDon.setString(5, null); 
+                psDon.setString(6, don.getTrangThai() != null ? don.getTrangThai() : "Đã đặt");
                 psDon.executeUpdate();
             }
 
-            // --- BƯỚC C: Lưu vào bảng ChiTietDatBan ---
+            // --- BƯỚC C: Lưu ChiTietDatBan (Lưu NHIỀU BÀN cùng lúc bằng AddBatch) ---
+            // Chia trung bình số lượng khách ra các bàn để lưu
+            int khachMoiBan = don.getSoLuongKhach() / danhSachMaBan.size();
+            int khachLe = don.getSoLuongKhach() % danhSachMaBan.size();
+            
             String sqlCT = "INSERT INTO ChiTietDatBan (maDon, maBan, soLuongKhach) VALUES (?, ?, ?)";
             try (PreparedStatement psCT = con.prepareStatement(sqlCT)) {
-                psCT.setString(1, don.getMaDon());
-                psCT.setString(2, don.getMaBan());
-                psCT.setInt(3, don.getSoLuongKhach());
-                psCT.executeUpdate();
+                for (int i = 0; i < danhSachMaBan.size(); i++) {
+                    psCT.setString(1, don.getMaDon());
+                    psCT.setString(2, danhSachMaBan.get(i));
+                    // Bàn đầu tiên sẽ gánh số khách lẻ (nếu có chia không hết)
+                    psCT.setInt(3, i == 0 ? (khachMoiBan + khachLe) : khachMoiBan); 
+                    psCT.addBatch(); 
+                }
+                psCT.executeBatch(); 
             }
 
-            // Hoàn tất Transaction
+            // Nếu mọi thứ trơn tru -> Commit xuống CSDL
             con.commit(); 
             return true;
 
         } catch (SQLException e) {
-            // Nếu có lỗi ở bất kỳ bước nào, rollback (hoàn tác) lại toàn bộ
             if (con != null) {
-                try { con.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+                try { con.rollback(); } catch (SQLException ex) { ex.printStackTrace(); } 
             }
             e.printStackTrace();
         } finally {
@@ -112,11 +129,18 @@ public class DonDatBanDAO {
         return false;
     }
 
+    // Hàm ghi đè (Overload) để tương thích với các form cũ chỉ chọn 1 bàn
+    public boolean insertDonDat(DonDatBan don) {
+        List<String> danhSachMaBan = new ArrayList<>();
+        danhSachMaBan.add(don.getMaBan());
+        return insertDonDat(don, danhSachMaBan);
+    }
+
     /**
-     * 3. Cập nhật trạng thái (Hàm này dùng để thay đổi trạng thái của BÀN khi Hủy Đơn)
+     * 3. Cập nhật trạng thái của BÀN khi Hủy Đơn
      */
     public boolean updateTrangThaiDon(String maDon, String trangThaiMoi) {
-        String sql = "UPDATE Ban SET trangThai = ? WHERE maBan = (SELECT maBan FROM ChiTietDatBan WHERE maDon = ?)";
+        String sql = "UPDATE Ban SET trangThai = ? WHERE maBan IN (SELECT maBan FROM ChiTietDatBan WHERE maDon = ?)";
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, trangThaiMoi);
@@ -129,7 +153,7 @@ public class DonDatBanDAO {
     }
 
     /**
-     * 4. CẬP NHẬT TRẠNG THÁI CỦA ĐƠN ĐẶT BÀN VÀO CSDL (Thêm mới)
+     * 4. CẬP NHẬT TRẠNG THÁI CỦA ĐƠN ĐẶT BÀN VÀO CSDL
      */
     public boolean updateTrangThaiCuaDon(String maDon, String trangThaiMoi) {
         String sql = "UPDATE DonDatBan SET trangThai = ? WHERE maDon = ?";
@@ -145,7 +169,7 @@ public class DonDatBanDAO {
     }
 
     /**
-     * 5. KIỂM TRA TRÙNG LỊCH ĐẶT BÀN (Khoảng cách giữa 2 đơn < 2 tiếng)
+     * 5. KIỂM TRA TRÙNG LỊCH ĐẶT BÀN
      */
     public boolean kiemTraTrungLich(String maBan, java.time.LocalDate ngayDat, java.time.LocalTime thoiGian, String maDonNgoaiLe) {
         String sql = "SELECT d.thoiGian FROM DonDatBan d " +
@@ -155,14 +179,13 @@ public class DonDatBanDAO {
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maBan);
             ps.setDate(2, java.sql.Date.valueOf(ngayDat));
-            ps.setString(3, maDonNgoaiLe); // Loại trừ chính cái đơn đang được thao tác
+            ps.setString(3, maDonNgoaiLe); 
             
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     java.time.LocalTime timeDB = rs.getTimestamp("thoiGian").toLocalDateTime().toLocalTime();
-                    // Tính độ chênh lệch thời gian giữa 2 đơn
                     long diffMinutes = java.time.Duration.between(timeDB, thoiGian).abs().toMinutes();
-                    if (diffMinutes < 120) { // Nhỏ hơn 120 phút (2 tiếng) là bị trùng
+                    if (diffMinutes < 120) { 
                         return true; 
                     }
                 }
@@ -175,15 +198,12 @@ public class DonDatBanDAO {
 
     /**
      * 6. AUTO UPDATE MÀU SƠ ĐỒ BÀN (Hệ thống chạy ngầm)
-     * - Nếu còn > 2 tiếng hoặc là đơn của ngày mai: Ép bàn về màu XANH (Trống)
-     * - Nếu <= 2 tiếng (và không bị trễ quá 30p): Tự động lên màu VÀNG (Đã đặt)
      */
     public boolean autoUpdateMauBan() {
         boolean hasChange = false;
         try (Connection con = SQLConnection.getConnection();
              Statement stmt = con.createStatement()) {
              
-            // 1. Trả bàn về màu XANH (Trống) nếu: Thời gian chờ > 2 tiếng HOẶC là đơn ngày mai
             String sqlToXanh = "UPDATE Ban SET trangThai = N'Trống' " +
                                "WHERE trangThai = N'Đã đặt' AND maBan NOT IN (" +
                                "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
@@ -192,7 +212,6 @@ public class DonDatBanDAO {
                                ")";
             int countXanh = stmt.executeUpdate(sqlToXanh);
             
-            // 2. Lên màu VÀNG (Đã đặt) cho các bàn: Trống VÀ Còn <= 2 tiếng tới giờ khách nhận bàn
             String sqlToVang = "UPDATE Ban SET trangThai = N'Đã đặt' " +
                                "WHERE trangThai = N'Trống' AND maBan IN (" +
                                "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
@@ -201,9 +220,8 @@ public class DonDatBanDAO {
                                ")";
             int countVang = stmt.executeUpdate(sqlToVang);
             
-            if (countXanh > 0 || countVang > 0) {
-                hasChange = true; // Cờ báo hiệu sơ đồ bàn cần được làm mới
-            }
+            if (countXanh > 0 || countVang > 0) hasChange = true;
+            
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -211,35 +229,45 @@ public class DonDatBanDAO {
     }
 
     /**
-     * 7. TỰ ĐỘNG PHÁT SINH MÃ ĐƠN MỚI
-     * ĐÃ FIX LỖI: Cắt bỏ hậu tố (-1, -2) của đơn đặt khối trước khi lấy số lớn nhất
+     * 7. TỰ ĐỘNG PHÁT SINH MÃ ĐƠN MỚI TỐI ƯU
      */
     public String getMaDonTiepTheo() {
-        String sql = "SELECT maDon FROM DonDatBan WHERE maDon LIKE 'D%'";
-        int maxSo = 0;
+        String sql = "SELECT MAX(CAST(SUBSTRING(maDon, 2, LEN(maDon)) AS INT)) FROM DonDatBan WHERE maDon LIKE 'D%'";
         try (Connection con = SQLConnection.getConnection();
              Statement stmt = con.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
              
-            while (rs.next()) {
-                String ma = rs.getString(1);
-                if (ma != null && ma.startsWith("D")) {
-                    try {
-                        // Nâng cấp: Tách bỏ phần "-1", "-2" của các đơn gộp
-                        String baseMa = ma.contains("-") ? ma.substring(0, ma.indexOf("-")) : ma;
-                        
-                        int so = Integer.parseInt(baseMa.substring(1));
-                        if (so > maxSo) {
-                            maxSo = so;
-                        }
-                    } catch (Exception ex) {
-                        // Bỏ qua các mã rác không đúng định dạng
-                    }
-                }
+            if (rs.next()) {
+                int maxSo = rs.getInt(1);
+                return String.format("D%03d", maxSo + 1); 
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return String.format("D%03d", maxSo + 1);
+        return "D001";
+    }
+
+    /**
+     * 8. HÀM MỚI: LẤY CHI TIẾT BÀN CỦA 1 ĐƠN (Dùng cho Popup Form Chi Tiết)
+     * Trả về Object[] chứa: [Mã bàn, Số lượng khách dự kiến]
+     */
+    public List<Object[]> getChiTietBanCuaDon(String maDon) {
+        List<Object[]> listCT = new ArrayList<>();
+        String sql = "SELECT maBan, soLuongKhach FROM ChiTietDatBan WHERE maDon = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+             
+            ps.setString(1, maDon);
+            ResultSet rs = ps.executeQuery();
+            while(rs.next()){
+                listCT.add(new Object[]{ 
+                    rs.getString("maBan"), 
+                    rs.getInt("soLuongKhach") 
+                });
+            }
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+        }
+        return listCT;
     }
 }

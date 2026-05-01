@@ -21,13 +21,14 @@ public class GUIDashBoardNVLT extends JFrame {
     private CardLayout cardLayout;
     private List<JButton> menuButtons = new ArrayList<>();
 
-    private SoDoBanPanel_NVLT pnlSoDoBan;
+    // Chuẩn bị sẵn 3 biến Panel cho 3 luồng nghiệp vụ
+    private SoDoBan_Normal_Panel pnlSoDoBan_Normal;
+    private SoDoBan_Gop_Panel pnlSoDoBan_Gop;
+    private SoDoBanPanel_NVLT pnlSoDoBan_Chuyen;
     private DanhSachDatBanPanel pnlDanhSachDatBan; 
     
-    // Thêm biến lưu mã nhân viên đăng nhập
     private String maNV;
 
-    // Yêu cầu truyền mã NV khi mở form này lên
     public GUIDashBoardNVLT(String maNV) {
         this.maNV = maNV;
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
@@ -54,7 +55,16 @@ public class GUIDashBoardNVLT extends JFrame {
         
         menuContainer.add(createBrandPanel());
 
-        addMenu(menuContainer, "Đặt bàn", "icons/seating.png", "SoDoBan");
+        // =========================================================================
+        // NÂNG CẤP MENU: TẠO MENU XỔ XUỐNG (DROPDOWN) CHO PHẦN SƠ ĐỒ BÀN
+        // =========================================================================
+        String[][] subMenus = {
+            {"  Đặt bàn & Check-in", "SoDoBan_Normal"},
+            {"  Gộp bàn", "SoDoBan_Gop"},
+            {"  Chuyển bàn", "SoDoBan_Chuyen"}
+        };
+        addDropdownMenu(menuContainer, "Quản lý sơ đồ bàn", "icons/seating.png", subMenus);
+        
         addMenu(menuContainer, "Danh sách đặt bàn", "icons/list.png", "DanhSachDatBan"); 
 
         sidebar.add(menuContainer, BorderLayout.NORTH);
@@ -65,26 +75,96 @@ public class GUIDashBoardNVLT extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
 
-        // TRUYỀN MÃ NHÂN VIÊN VÀO SƠ ĐỒ BÀN ĐỂ TẠO PHIẾU ẢO KHÔNG BỊ LỖI
-        pnlSoDoBan = new SoDoBanPanel_NVLT(this.maNV);
+        // Tạm thời tạo 3 instance giống nhau. 
+        // Sang BƯỚC 2, ta sẽ thêm tham số Mode (ví dụ "GOP", "CHUYEN") vào hàm khởi tạo này
+        pnlSoDoBan_Normal = new SoDoBan_Normal_Panel(this.maNV);
+        pnlSoDoBan_Gop = new SoDoBan_Gop_Panel(this.maNV);
+        pnlSoDoBan_Chuyen = new SoDoBanPanel_NVLT(this.maNV);
         pnlDanhSachDatBan = new DanhSachDatBanPanel(); 
 
-        mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
+        mainContentPanel.add(pnlSoDoBan_Normal, "SoDoBan_Normal"); 
+        mainContentPanel.add(pnlSoDoBan_Gop, "SoDoBan_Gop"); 
+        mainContentPanel.add(pnlSoDoBan_Chuyen, "SoDoBan_Chuyen"); 
         mainContentPanel.add(pnlDanhSachDatBan, "DanhSachDatBan"); 
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
-        // Mặc định hiện Đặt bàn
-        cardLayout.show(mainContentPanel, "SoDoBan");
-        setActiveMenu("Đặt bàn"); 
+        // Mặc định hiện phần Đặt bàn & Check-in
+        cardLayout.show(mainContentPanel, "SoDoBan_Normal");
+        setActiveMenu("  Đặt bàn & Check-in"); 
     }
 
+    // =========================================================================
+    // HÀM HỖ TRỢ VẼ MENU XỔ XUỐNG CỰC KỲ ĐẸP MẮT
+    // =========================================================================
+    private void addDropdownMenu(JPanel container, String title, String iconPath, String[][] subItems) {
+        // Nút Menu Cha (Bấm vào để ẩn/hiện menu con)
+        JButton btnParent = new JButton(title);
+        btnParent.setIcon(getIconFromFile(iconPath, 20));
+        btnParent.setMaximumSize(new Dimension(240, 45));
+        btnParent.setPreferredSize(new Dimension(240, 45));
+        btnParent.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnParent.setForeground(TEXT_DARK);
+        btnParent.setBackground(SIDEBAR_BG);
+        btnParent.setHorizontalAlignment(SwingConstants.LEFT);
+        btnParent.setIconTextGap(15);
+        btnParent.setMargin(new Insets(0, 20, 0, 0));
+        btnParent.setBorderPainted(false);
+        btnParent.setFocusPainted(false);
+        btnParent.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btnParent.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Panel chứa các nút Menu Con
+        JPanel pnlSubMenu = new JPanel();
+        pnlSubMenu.setLayout(new BoxLayout(pnlSubMenu, BoxLayout.Y_AXIS));
+        pnlSubMenu.setOpaque(false);
+
+        // Sự kiện Đóng/Mở menu con
+        btnParent.addActionListener(e -> {
+            pnlSubMenu.setVisible(!pnlSubMenu.isVisible());
+            container.revalidate();
+            container.repaint();
+        });
+
+        // Đổ các Menu Con vào
+        for (String[] item : subItems) {
+            String subText = item[0];
+            String cardName = item[1];
+            
+            JButton btnSub = new JButton(subText);
+            btnSub.setMaximumSize(new Dimension(240, 40));
+            btnSub.setPreferredSize(new Dimension(240, 40));
+            btnSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            btnSub.setForeground(TEXT_MUTED);
+            btnSub.setBackground(SIDEBAR_BG);
+            btnSub.setHorizontalAlignment(SwingConstants.LEFT);
+            btnSub.setMargin(new Insets(0, 50, 0, 0)); // Thụt lề sâu vào trong để phân biệt với cha
+            btnSub.setBorderPainted(false);
+            btnSub.setFocusPainted(false);
+            btnSub.setAlignmentX(Component.CENTER_ALIGNMENT);
+            btnSub.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            btnSub.addActionListener(e -> {
+                cardLayout.show(mainContentPanel, cardName);
+                setActiveMenu(subText);
+            });
+            
+            menuButtons.add(btnSub);
+            pnlSubMenu.add(btnSub);
+        }
+
+        container.add(btnParent);
+        container.add(pnlSubMenu);
+        container.add(Box.createRigidArea(new Dimension(0, 8)));
+    }
+
+    // Hàm tạo Menu thường (Giữ nguyên)
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {
         JButton btn = new JButton(text);
         btn.setIcon(getIconFromFile(iconPath, 20));
         btn.setMaximumSize(new Dimension(240, 45));
         btn.setPreferredSize(new Dimension(240, 45));
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); // Menu cha để Bold
         btn.setForeground(TEXT_MUTED);
         btn.setBackground(SIDEBAR_BG);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
@@ -116,6 +196,10 @@ public class GUIDashBoardNVLT extends JFrame {
                 btn.setBackground(SIDEBAR_BG);
                 btn.setForeground(TEXT_MUTED);
                 btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                // Nếu là nút Menu gốc thì giữ nguyên Bold
+                if (!btn.getText().startsWith("  ")) {
+                    btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                }
             }
         }
     }
@@ -153,7 +237,6 @@ public class GUIDashBoardNVLT extends JFrame {
         sep.setMaximumSize(new Dimension(230, 1));
         sep.setForeground(new Color(220, 220, 220));
         
-        // Hiển thị mã nhân viên đang đăng nhập lên góc dưới bên trái
         JLabel name = new JLabel("LỄ TÂN (" + maNV + ")");
         name.setIcon(getIconFromFile("icons/user.png", 18));
         name.setForeground(TEXT_DARK);
@@ -191,7 +274,6 @@ public class GUIDashBoardNVLT extends JFrame {
     }
 
     public static void main(String[] args) {
-        // Truyền tạm "NV008" để test khi chạy file này trực tiếp
         SwingUtilities.invokeLater(() -> new GUIDashBoardNVLT("NV008").setVisible(true));
     }
 }

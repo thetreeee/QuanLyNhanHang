@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class DialogCheckIn extends JDialog {
     private static final long serialVersionUID = 1L;
@@ -98,7 +99,6 @@ public class DialogCheckIn extends JDialog {
     private void loadData() {
         model.setRowCount(0);
         List<DonDatBan> dsDon = donDAO.getAllDonDat();
-        List<Ban> dsBan = banDAO.getAllBan();
         LocalDateTime now = LocalDateTime.now();
 
         for (DonDatBan d : dsDon) {
@@ -108,31 +108,27 @@ public class DialogCheckIn extends JDialog {
                 LocalDateTime thoiGianDat = LocalDateTime.of(d.getNgayDat(), d.getThoiGian());
                 long phutCachNhau = Duration.between(now, thoiGianDat).toMinutes();
 
-                if (phutCachNhau <= 15) {
-                    Ban banCuaDon = dsBan.stream().filter(b -> b.getMaBan().equals(d.getMaBan())).findFirst().orElse(null);
-                    
-                    if (banCuaDon != null && !banCuaDon.getTrangThai().equalsIgnoreCase("Đang dùng")) {
-                        
-                        String tinhTrang = "Đúng giờ";
-                        if (phutCachNhau > 0 && phutCachNhau <= 15) tinhTrang = "Sớm " + phutCachNhau + " phút";
-                        else if (phutCachNhau < 0) tinhTrang = "Trễ " + Math.abs(phutCachNhau) + " phút";
+                // Cho phép Check-in sớm 30 phút
+                if (phutCachNhau <= 30) {
+                    String tinhTrang = "Đúng giờ";
+                    if (phutCachNhau > 0 && phutCachNhau <= 30) tinhTrang = "Sớm " + phutCachNhau + " phút";
+                    else if (phutCachNhau < 0) tinhTrang = "Trễ " + Math.abs(phutCachNhau) + " phút";
 
-                        model.addRow(new Object[]{
-                            d.getMaDon(),
-                            d.getMaBan(),
-                            d.getTenKhachHang() != null ? d.getTenKhachHang() : "Khách vãng lai",
-                            d.getSoDienThoai(),
-                            d.getThoiGian().format(DateTimeFormatter.ofPattern("HH:mm")),
-                            tinhTrang
-                        });
-                    }
+                    model.addRow(new Object[]{
+                        d.getMaDon(),
+                        d.getMaBan(), 
+                        d.getTenKhachHang() != null ? d.getTenKhachHang() : "Khách vãng lai",
+                        d.getSoDienThoai(),
+                        d.getThoiGian().format(DateTimeFormatter.ofPattern("HH:mm")),
+                        tinhTrang
+                    });
                 }
             }
         }
     }
 
     // =========================================================================
-    // ĐÃ NÂNG CẤP: AUTO CHECK-IN ĐỒNG LOẠT VÀ AUTO GỘP KHỐI CHO ĐƠN NHÓM
+    // XỬ LÝ CHECK-IN VÀ CHẶN NGHIÊM NGẶT "TẤT CẢ HOẶC KHÔNG CÓ GÌ"
     // =========================================================================
     private void xuLyCheckIn() {
         int row = table.getSelectedRow();
@@ -141,71 +137,73 @@ public class DialogCheckIn extends JDialog {
             return;
         }
 
-        String maDonFull = table.getValueAt(row, 0).toString();
+        String maDon = table.getValueAt(row, 0).toString();
+        String chuoiMaBan = table.getValueAt(row, 1).toString(); // VD: "B01" hoặc "B01, B02, B03"
         String tenKhach = table.getValueAt(row, 2).toString();
 
-        // 1. Phân tích mã đơn để xem có phải đơn đặt theo khối không (Tách lấy phần gốc trước dấu '-')
-        String baseMaDon = maDonFull.contains("-") ? maDonFull.substring(0, maDonFull.indexOf("-")) : maDonFull;
+        String[] arrBan = chuoiMaBan.contains(",") ? chuoiMaBan.split(", ") : new String[]{chuoiMaBan};
+        List<String> listMaBanGop = new ArrayList<>(Arrays.asList(arrBan));
 
-        // 2. Gom tất cả các bàn thuộc cùng mã đơn gốc này
-        List<String> listMaBanGop = new ArrayList<>();
-        List<String> listMaDonGop = new ArrayList<>();
-
-        List<DonDatBan> dsDon = donDAO.getAllDonDat();
-        for (DonDatBan d : dsDon) {
-            if (d.getNgayDat().equals(LocalDate.now()) && 
-               (d.getTrangThai().equalsIgnoreCase("Đang chờ") || d.getTrangThai().equalsIgnoreCase("Đã đặt"))) {
-                
-                String md = d.getMaDon();
-                // Bắt đúng các đơn có mã giống hệt gốc, hoặc bắt đầu bằng "Gốc-"
-                if (md.equals(baseMaDon) || md.startsWith(baseMaDon + "-")) {
-                    listMaBanGop.add(d.getMaBan());
-                    listMaDonGop.add(d.getMaDon());
-                }
+        // =====================================================================
+        // LỚP KHIÊN: GOM TẤT CẢ CÁC BÀN ĐANG CÓ KHÁCH ĐỂ BÁO CÁO 1 LẦN
+        // =====================================================================
+        List<Ban> dsBanHienTai = banDAO.getAllBan();
+        List<String> cacBanDangBan = new ArrayList<>();
+        
+        for (String mb : listMaBanGop) {
+            Ban banCheck = dsBanHienTai.stream().filter(b -> b.getMaBan().equals(mb)).findFirst().orElse(null);
+            if (banCheck != null && (banCheck.getTrangThai().equalsIgnoreCase("Đang dùng") || banCheck.getTrangThai().equalsIgnoreCase("Checked-in"))) {
+                cacBanDangBan.add(mb);
             }
         }
 
-        // --- TRƯỜNG HỢP 1: ĐÂY LÀ ĐƠN ĐẶT KHỐI (Có từ 2 bàn trở lên) ---
+        if (!cacBanDangBan.isEmpty()) {
+            String strBanBan = String.join(", ", cacBanDangBan);
+            JOptionPane.showMessageDialog(this, 
+                "KHOAN ĐÃ! Không thể Check-in vì trong nhóm bàn đặt, bàn: " + strBanBan + " hiện đang có khách ngồi (chưa thanh toán).\n\n" +
+                "HƯỚNG XỬ LÝ:\n" +
+                "1. Mời khách đoàn '" + tenKhach + "' ra khu vực chờ.\n" +
+                "2. Hối thúc khách ở bàn " + strBanBan + " thanh toán.\n" +
+                "3. Hoặc vào [Danh sách đặt bàn] -> Đổi sang các bàn trống khác.\n\n" +
+                "Hệ thống TỪ CHỐI Check-in để đảm bảo đủ chỗ cho khách!", 
+                "Xung đột bàn", JOptionPane.ERROR_MESSAGE);
+            return; // Đẩy ra ngay lập tức, hủy bỏ thao tác Check-in
+        }
+        // =====================================================================
+
+        // Vượt qua khiên bảo vệ, tiến hành Check-in bình thường
         if (listMaBanGop.size() > 1) {
-            String strBan = String.join(", ", listMaBanGop);
-            String maBanChinh = listMaBanGop.get(0);
+            String maBanChinh = listMaBanGop.get(0); 
             
             int confirm = JOptionPane.showConfirmDialog(this, 
-                "Khách hàng '" + tenKhach + "' đã đặt Khối gồm " + listMaBanGop.size() + " bàn: " + strBan + ".\n\n" +
-                "Hệ thống sẽ Check-in ĐỒNG LOẠT và TỰ ĐỘNG GỘP KHỐI các bàn này lại.\n" +
+                "Khách đoàn '" + tenKhach + "' đã đặt Nhóm gồm " + listMaBanGop.size() + " bàn: " + chuoiMaBan + ".\n\n" +
+                "Hệ thống sẽ Check-in ĐỒNG LOẠT và TỰ ĐỘNG GỘP KHỐI.\n" +
                 "Bàn chính đại diện hóa đơn sẽ là: " + maBanChinh + ".\n\n" +
-                "Bạn có muốn tiếp tục?", 
+                "Tất cả các bàn đều đã trống. Bạn có muốn Check-in ngay?", 
                 "Xác nhận Check-in Khối", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                boolean successDon = true;
-                // Cập nhật trạng thái Checked-in cho tất cả các phiếu
-                for (String md : listMaDonGop) {
-                    if (!donDAO.updateTrangThaiCuaDon(md, "Checked-in")) successDon = false;
-                }
-
-                // GỌI HÀM DAO ĐỂ KHÓA TẤT CẢ LẠI THÀNH 1 KHỐI TRONG DB
+                boolean successDon = donDAO.updateTrangThaiCuaDon(maDon, "Checked-in");
                 boolean successBan = banDAO.taoKhoiBan(listMaBanGop, maBanChinh);
 
                 if (successDon && successBan) {
-                    JOptionPane.showMessageDialog(this, "Check-in Khối thành công! Các bàn đã được gộp số Nhóm.");
+                    for(String b : listMaBanGop) banDAO.updateTrangThaiBan(b, "Đang dùng");
+                    JOptionPane.showMessageDialog(this, "Check-in Nhóm thành công! Các bàn đã được liên kết Khối.");
                     isThanhCong = true;
                     dispose();
                 } else {
-                    JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi Check-in khối!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi Check-in nhóm!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         } 
-        // --- TRƯỜNG HỢP 2: ĐÂY CHỈ LÀ ĐƠN BÀN ĐƠN LẺ ---
         else {
-            String maBan = listMaBanGop.get(0);
             int confirm = JOptionPane.showConfirmDialog(this, 
-                "Xác nhận Check-in cho khách: " + tenKhach + " (Bàn " + maBan + ")?", 
+                "Xác nhận Check-in cho khách: " + tenKhach + " (Bàn " + chuoiMaBan + ")?", 
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                boolean updateDon = donDAO.updateTrangThaiCuaDon(maDonFull, "Checked-in");
-                boolean updateBan = banDAO.updateTrangThaiBan(maBan, "Đang dùng");
+                boolean updateDon = donDAO.updateTrangThaiCuaDon(maDon, "Checked-in");
+                boolean updateBan = banDAO.updateTrangThaiBan(chuoiMaBan, "Đang dùng");
 
                 if (updateDon && updateBan) {
                     JOptionPane.showMessageDialog(this, "Check-in thành công! Bàn đã sẵn sàng gọi món.");

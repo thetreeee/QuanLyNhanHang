@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 public class DialogTaoDonDat extends JDialog {
     private static final long serialVersionUID = 1L;
@@ -51,35 +50,8 @@ public class DialogTaoDonDat extends JDialog {
         txtMaBan.setFocusable(false);
 
         // =============================================================
-        // 3. Họ tên khách hàng (ĐÃ THÊM BẮT LỖI KHI RỜI CHUỘT)
+        // 3. Số điện thoại (ĐÃ ĐƯA LÊN TRÊN & CHUẨN BỊ TÍNH NĂNG TỰ ĐIỀN TÊN)
         // =============================================================
-        txtHoTen = createStyledTextField("");
-        lblErrorHoTen = new JLabel("* Phải nhập đủ họ tên");
-        lblErrorHoTen.setForeground(Color.RED);
-        lblErrorHoTen.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblErrorHoTen.setVisible(false);
-
-        JPanel pnlHoTenWrapper = new JPanel(new BorderLayout(0, 2));
-        pnlHoTenWrapper.setOpaque(false);
-        pnlHoTenWrapper.add(txtHoTen, BorderLayout.CENTER);
-        pnlHoTenWrapper.add(lblErrorHoTen, BorderLayout.SOUTH);
-
-        txtHoTen.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                validateHoTen(); // Rời chuột đi thì kiểm tra xem có rỗng không
-            }
-
-            @Override
-            public void focusGained(FocusEvent e) {
-                // Trả lại viền xám bình thường khi bấm vào để gõ tiếp
-                txtHoTen.putClientProperty("JComponent.outline", null);
-                txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
-                lblErrorHoTen.setVisible(false);
-            }
-        });
-
-        // 4. Số điện thoại (CÓ BẮT LỖI KHI RỜI CHUỘT)
         txtSdt = createStyledTextField("");
         lblErrorSdt = new JLabel("* SĐT phải bắt đầu bằng 0 và có 10 số");
         lblErrorSdt.setForeground(Color.RED);
@@ -95,6 +67,20 @@ public class DialogTaoDonDat extends JDialog {
             @Override
             public void focusLost(FocusEvent e) {
                 validateSDT(); 
+                
+                // MỒI SẴN CODE: TỰ ĐỘNG TRA CỨU KHÁCH HÀNG
+                if (isValidSDT(txtSdt.getText().trim())) {
+                    /* TODO: Sau này bạn làm tới phần Khách Hàng thì mở comment đoạn này ra
+                    KhachHangDAO khDao = new KhachHangDAO();
+                    KhachHang kh = khDao.timKhachHangTheoSDT(txtSdt.getText().trim());
+                    if (kh != null) {
+                        txtHoTen.setText(kh.getHoTen()); // Tự động điền tên
+                        txtHoTen.putClientProperty("JComponent.outline", null); // Xóa lỗi viền đỏ nếu có
+                        txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
+                        lblErrorHoTen.setVisible(false);
+                    }
+                    */
+                }
             }
 
             @Override
@@ -105,26 +91,75 @@ public class DialogTaoDonDat extends JDialog {
             }
         });
 
-        // 5. Ngày đặt
+        // =============================================================
+        // 4. Họ tên khách hàng (ĐƯA XUỐNG DƯỚI)
+        // =============================================================
+        txtHoTen = createStyledTextField("");
+        lblErrorHoTen = new JLabel("* Phải nhập đủ họ tên");
+        lblErrorHoTen.setForeground(Color.RED);
+        lblErrorHoTen.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblErrorHoTen.setVisible(false);
+
+        JPanel pnlHoTenWrapper = new JPanel(new BorderLayout(0, 2));
+        pnlHoTenWrapper.setOpaque(false);
+        pnlHoTenWrapper.add(txtHoTen, BorderLayout.CENTER);
+        pnlHoTenWrapper.add(lblErrorHoTen, BorderLayout.SOUTH);
+
+        txtHoTen.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                validateHoTen(); 
+            }
+
+            @Override
+            public void focusGained(FocusEvent e) {
+                txtHoTen.putClientProperty("JComponent.outline", null);
+                txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
+                lblErrorHoTen.setVisible(false);
+            }
+        });
+
+        // ==============================================================
+        // 5. Ngày đặt (KHÓA NẾU CÓ DỮ LIỆU TỪ BỘ LỌC)
+        // ==============================================================
         String ngayGoc = (ngayLoc != null && !ngayLoc.trim().isEmpty()) ? ngayLoc : LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         txtNgay = createStyledTextField(ngayGoc);
+        if (ngayLoc != null && !ngayLoc.trim().isEmpty()) {
+            txtNgay.setEditable(false);
+            txtNgay.setFocusable(false);
+            txtNgay.setBackground(new Color(240, 240, 240));
+        }
 
-        // 6. Thời gian
+        // ==============================================================
+        // 6. Thời gian (KHÓA NẾU CÓ DỮ LIỆU TỪ BỘ LỌC)
+        // ==============================================================
         String gioGoc = (gioLoc != null && !gioLoc.trim().isEmpty()) ? gioLoc : LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
         txtThoiGian = createStyledTextField(gioGoc);
+        if (gioLoc != null && !gioLoc.trim().isEmpty()) {
+            txtThoiGian.setEditable(false);
+            txtThoiGian.setFocusable(false);
+            txtThoiGian.setBackground(new Color(240, 240, 240));
+        }
         
-        // 7. Số lượng khách
+        // ==============================================================
+        // 7. Số lượng khách (KHÓA NẾU CÓ DỮ LIỆU TỪ BỘ LỌC)
+        // ==============================================================
         String slGoc = (soLuongLoc != null && !soLuongLoc.trim().isEmpty()) ? soLuongLoc : "1";
         txtSoLuong = createStyledTextField(slGoc);
+        if (soLuongLoc != null && !soLuongLoc.trim().isEmpty()) {
+            txtSoLuong.setEditable(false);
+            txtSoLuong.setFocusable(false);
+            txtSoLuong.setBackground(new Color(240, 240, 240));
+        }
         
         // 8. Ghi chú
         txtGhiChu = createStyledTextField("");
 
-        // Add vào panel
+        // ĐÃ SỬA: Add vào panel theo đúng thứ tự (SĐT trước, Họ tên sau)
         pnlContent.add(new JLabel("Mã đơn:"));        pnlContent.add(txtMaDon);
         pnlContent.add(new JLabel("Mã bàn:"));        pnlContent.add(txtMaBan);
-        pnlContent.add(new JLabel("Họ tên:"));         pnlContent.add(pnlHoTenWrapper); 
         pnlContent.add(new JLabel("Số điện thoại:"));  pnlContent.add(pnlSdtWrapper); 
+        pnlContent.add(new JLabel("Họ tên:"));         pnlContent.add(pnlHoTenWrapper); 
         pnlContent.add(new JLabel("Ngày:"));           pnlContent.add(txtNgay);
         pnlContent.add(new JLabel("Thời gian:"));      pnlContent.add(txtThoiGian);
         pnlContent.add(new JLabel("Số lượng khách:")); pnlContent.add(txtSoLuong);
@@ -144,11 +179,14 @@ public class DialogTaoDonDat extends JDialog {
 
         btnLuu.addActionListener(e -> {
             
-            // 1. Kiểm tra rỗng
-            if(txtHoTen.getText().trim().isEmpty() || txtSdt.getText().trim().isEmpty()) {
-                validateHoTen(); // Chủ động gọi để nháy đỏ các ô rỗng
-                validateSDT();
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ Họ tên và Số điện thoại khách!");
+            // 1. Kiểm tra tính hợp lệ của Họ Tên và SĐT
+            boolean isHoTenValid = validateHoTen();
+            
+            if(!isHoTenValid || txtSdt.getText().trim().isEmpty()) {
+                validateSDT(); // Chủ động gọi để nháy đỏ SĐT nếu rỗng
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập Số điện thoại và Họ tên hợp lệ (không chứa số)!");
+                if (txtSdt.getText().trim().isEmpty()) txtSdt.requestFocus();
+                else txtHoTen.requestFocus();
                 return;
             }
             
@@ -171,10 +209,10 @@ public class DialogTaoDonDat extends JDialog {
                 LocalDateTime thoiGianChon = LocalDateTime.of(ngay, gio);
                 if (thoiGianChon.isBefore(LocalDateTime.now())) {
                     JOptionPane.showMessageDialog(this, 
-                        "Thời gian đặt bàn không hợp lệ!", 
+                        "Thời gian đặt bàn không hợp lệ!\nVui lòng chọn ngày và giờ ở TƯƠNG LAI.", 
                         "Cảnh báo", 
                         JOptionPane.WARNING_MESSAGE);
-                    return; // Chặn lại, không thực hiện tiếp
+                    return; 
                 }
 
                 isThanhCong = true;
@@ -194,26 +232,34 @@ public class DialogTaoDonDat extends JDialog {
         getRootPane().setDefaultButton(btnLuu);
     }
 
-    // Hàm kiểm tra rỗng của Họ tên
-    private void validateHoTen() {
+    private boolean validateHoTen() {
         String hoten = txtHoTen.getText().trim();
         if (hoten.isEmpty()) {
+            lblErrorHoTen.setText("* Phải nhập đủ họ tên");
             txtHoTen.putClientProperty("JComponent.outline", "error");
             txtHoTen.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
             lblErrorHoTen.setVisible(true);
-        } else {
+            return false;
+        } 
+        else if (hoten.matches(".*\\d.*")) { 
+            lblErrorHoTen.setText("* Họ tên không được chứa số");
+            txtHoTen.putClientProperty("JComponent.outline", "error");
+            txtHoTen.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
+            lblErrorHoTen.setVisible(true);
+            return false;
+        } 
+        else {
             txtHoTen.putClientProperty("JComponent.outline", null);
             txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
             lblErrorHoTen.setVisible(false);
+            return true;
         }
     }
 
-    // Hàm kiểm tra Regex của SĐT Việt Nam
     private boolean isValidSDT(String sdt) {
         return sdt.matches("^0\\d{9}$");
     }
 
-    // Hàm đổi màu viền khi SĐT gõ sai
     private void validateSDT() {
         String sdt = txtSdt.getText().trim();
         if (sdt.isEmpty() || isValidSDT(sdt)) {
