@@ -2,9 +2,9 @@ package gui;
 
 import dao.BanDAO;
 import dao.DonDatBanDAO;
+import dao.DonDatMon_DAO;
 import entity.Ban;
 import entity.DonDatBan;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
@@ -36,7 +36,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
 
     private BanDAO banDAO;
     private DonDatBanDAO donDatBanDAO; 
-    
+    private DonDatMon_DAO donDatMonDAO;
     private JPanel pnlDanhSachBan;
     
     // ĐÃ THÊM: Chuyển thanh cuộn thành biến toàn cục để kiểm soát dễ dàng
@@ -68,16 +68,23 @@ public class SoDoBan_Normal_Panel extends JPanel {
     private Set<String> cacDonDaCanhBao = new HashSet<>();
     
     private String maNV;
-
+    
     public SoDoBan_Normal_Panel(String maNV) {
         this.maNV = maNV;
+        
+        // BẮT BUỘC PHẢI CÓ 3 DÒNG NÀY (ĐỂ TẠO KẾT NỐI XUỐNG CSDL)
         banDAO = new BanDAO();
         donDatBanDAO = new DonDatBanDAO(); 
+        donDatMonDAO = new DonDatMon_DAO(); 
         
-        initUI();
+        initUI(); // Khởi tạo giao diện
         
+        // Kéo dữ liệu đơn đặt bàn lên trước
         dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
-        loadData("");
+        
+        // Đổ dữ liệu vào giao diện (Dòng này sẽ lỗi nếu thiếu banDAO = new BanDAO(); ở trên)
+        loadData(""); 
+        
         startAutoCheckTimer(); 
 
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -712,17 +719,39 @@ public class SoDoBan_Normal_Panel extends JPanel {
         
         JButton btnChuyenTrong = createActionBtn("Về Trống");
         btnChuyenTrong.addActionListener(evt -> {
+            // =========================================================================
+            // RÀO CHẮN 1: KIỂM TRA ĐƠN ĐẶT BÀN (CỦA LỄ TÂN)
+            // =========================================================================
             dsDonDatHienTai = donDatBanDAO.getAllDonDat();
             boolean dangCoDonDat = dsDonDatHienTai.stream()
                 .anyMatch(d -> isBanInDon(d.getMaBan(), ban.getMaBan()) && (d.getTrangThai().equalsIgnoreCase("Checked-in") || d.getTrangThai().equalsIgnoreCase("Đang dùng")));
 
             if (dangCoDonDat) {
                 JOptionPane.showMessageDialog(this, 
-                    "Bàn đang dính Đơn đặt bàn. Vui lòng chuyển trạng thái Đơn đặt thành 'Hoàn thành' hoặc 'Đã hủy' ở tab Danh Sách Đặt Bàn trước.", 
+                    "Bàn đang dính Đơn đặt bàn.\n👉 Vui lòng chuyển trạng thái Đơn đặt thành 'Hoàn thành' hoặc 'Đã hủy' ở tab Danh Sách Đặt Bàn trước.", 
                     "Bảo vệ dữ liệu", JOptionPane.ERROR_MESSAGE);
                 return; 
             }
 
+            // =========================================================================
+            // RÀO CHẮN 2: KIỂM TRA ĐƠN GỌI MÓN/HÓA ĐƠN (CỦA PHỤC VỤ/THU NGÂN)
+            // =========================================================================
+            // Nếu bàn nằm trong khối, phải lấy mã bàn chính để kiểm tra hóa đơn tổng
+            String maBanCheck = (ban.getMaBanChinh() != null && !ban.getMaBanChinh().isEmpty()) ? ban.getMaBanChinh() : ban.getMaBan();
+            
+            // Yêu cầu class này phải khởi tạo biến donDatMonDAO = new DonDatMon_DAO() ở constructor
+            boolean dangCoDonMon = donDatMonDAO.kiemTraBanCoDonChuaThanhToan(maBanCheck);
+            
+            if (dangCoDonMon) {
+                JOptionPane.showMessageDialog(this, 
+                    "CẢNH BÁO BẢO MẬT: Bàn này (hoặc khối này) ĐANG CÓ MÓN CHƯA THANH TOÁN!\n\n" +
+                    "👉 Hệ thống từ chối trả bàn về Trống để tránh thất thoát Hóa đơn.\n" +
+                    "Vui lòng yêu cầu Thu ngân thanh toán dứt điểm trước khi dọn bàn!", 
+                    "Lỗi nghiệp vụ thanh toán", JOptionPane.ERROR_MESSAGE);
+                return; // CHẶN ĐỨNG TẠI ĐÂY, KHÔNG CHO TRẢ BÀN
+            }
+
+            // Nếu vượt qua cả 2 rào chắn an toàn -> Tiến hành giải tán khối hoặc đổi trạng thái
             if (JOptionPane.showConfirmDialog(this, "Chuyển bàn về trạng thái Trống?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 if (ban.getMaKhoi() != null) banDAO.giaiTanKhoi(ban.getMaKhoi());
                 else banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống");

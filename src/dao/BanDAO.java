@@ -203,23 +203,42 @@ public class BanDAO {
     // ĐÃ FIX: Thêm chữ N'Đang dùng'
     public boolean taoKhoiBan(List<String> danhSachMaBan, String maBanChinh) {
         if (danhSachMaBan == null || danhSachMaBan.isEmpty()) return false;
-        
-        int maKhoiMoi = getMaKhoiTiepTheo();
-        String sql = "UPDATE Ban SET maKhoi = ?, maBanChinh = ?, trangThai = N'Đang dùng' WHERE maBan = ?";
-        
+
+        int maKhoiToUse = -1;
+
+        // BƯỚC 1: Kiểm tra xem Bàn Chính đã thuộc Khối nào chưa?
+        String checkSql = "SELECT maKhoi FROM Ban WHERE maBan = ?";
         try (Connection con = SQLConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+             PreparedStatement psCheck = con.prepareStatement(checkSql)) {
+             
+            psCheck.setString(1, maBanChinh);
+            try (ResultSet rs = psCheck.executeQuery()) {
+                if (rs.next() && rs.getObject("maKhoi") != null) {
+                    maKhoiToUse = rs.getInt("maKhoi"); // NẾU CÓ THÌ DÙNG LẠI SỐ KHỐI CŨ (Ví dụ: 1)
+                } else {
+                    maKhoiToUse = getMaKhoiTiepTheo();  // NẾU LÀ BÀN TRỐNG MỚI HOÀN TOÀN THÌ SINH SỐ MỚI
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        // BƯỚC 2: Cập nhật tất cả các bàn được chọn theo số Khối đã xác định
+        String updateSql = "UPDATE Ban SET maKhoi = ?, maBanChinh = ?, trangThai = N'Đang dùng' WHERE maBan = ?";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement psUpdate = con.prepareStatement(updateSql)) {
             
             con.setAutoCommit(false); 
             
             for (String maBan : danhSachMaBan) {
-                ps.setInt(1, maKhoiMoi);
-                ps.setString(2, maBanChinh);
-                ps.setString(3, maBan);
-                ps.addBatch();
+                psUpdate.setInt(1, maKhoiToUse);
+                psUpdate.setString(2, maBanChinh);
+                psUpdate.setString(3, maBan);
+                psUpdate.addBatch();
             }
             
-            ps.executeBatch();
+            psUpdate.executeBatch();
             con.commit(); 
             return true;
             
@@ -228,7 +247,6 @@ public class BanDAO {
             return false;
         }
     }
-
     // 3. Giải tán toàn bộ Khối khi có lệnh "Về Trống"
     // ĐÃ FIX: Thêm chữ N'Trống'
     public boolean giaiTanKhoi(int maKhoi) {

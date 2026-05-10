@@ -122,6 +122,30 @@ public class DonDatMon_DAO {
     }
 
     // ==============================================================
+    // HÀM KIỂM TRA BÀN CÓ ĐƠN CHƯA THANH TOÁN (Dùng để chặn Về Trống)
+    // ==============================================================
+    public boolean kiemTraBanCoDonChuaThanhToan(String maBan) {
+        // SQL: Đếm số đơn đang gắn với mã bàn này
+        // Lưu ý: Nếu trong CSDL của bạn có thêm cột Trạng Thái (VD: Đã thanh toán, Chưa thanh toán) 
+        // thì hãy thêm điều kiện AND trangThai = 'Chưa thanh toán' vào nhé.
+        String sql = "SELECT COUNT(*) FROM DonDatMon WHERE maBan = ?"; 
+        
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+             
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0; // Nếu > 0 nghĩa là đang có đơn
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // ==============================================================
     // HÀM GỘP ĐƠN SIÊU TỐI ƯU (ĐỔI CHỦ SỞ HỮU HÓA ĐƠN)
     // ==============================================================
     public boolean gopDonDatMon(String maBanChinh, List<String> listBanPhu) {
@@ -173,10 +197,7 @@ public class DonDatMon_DAO {
         }
     }
 
-    // HÀM CHUYỂN BÀN (CẬP NHẬT TRONG ĐƠN ĐẶT MÓN)
     // ==============================================================
-    // Hàm này sẽ tìm Phiếu gọi món MỚI NHẤT của bàn cũ và đổi nó sang bàn mới
- // ==============================================================
     // HÀM CHUYỂN BÀN (DỜI TOÀN BỘ ĐƠN HÀNG CỦA BÀN CŨ)
     // ==============================================================
     public boolean chuyenBan(String maBanCu, String maBanMoi) {

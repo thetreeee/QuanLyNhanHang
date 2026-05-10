@@ -24,7 +24,7 @@ public class GUIDashBoardNVLT extends JFrame {
     // Chuẩn bị sẵn 3 biến Panel cho 3 luồng nghiệp vụ
     private SoDoBan_Normal_Panel pnlSoDoBan_Normal;
     private SoDoBan_Gop_Panel pnlSoDoBan_Gop;
-    private SoDoBanPanel_NVLT pnlSoDoBan_Chuyen;
+    private SoDoBan_Chuyen_Panel pnlSoDoBan_Chuyen;
     private DanhSachDatBanPanel pnlDanhSachDatBan; 
     
     private String maNV;
@@ -79,7 +79,7 @@ public class GUIDashBoardNVLT extends JFrame {
         // Sang BƯỚC 2, ta sẽ thêm tham số Mode (ví dụ "GOP", "CHUYEN") vào hàm khởi tạo này
         pnlSoDoBan_Normal = new SoDoBan_Normal_Panel(this.maNV);
         pnlSoDoBan_Gop = new SoDoBan_Gop_Panel(this.maNV);
-        pnlSoDoBan_Chuyen = new SoDoBanPanel_NVLT(this.maNV);
+        pnlSoDoBan_Chuyen = new SoDoBan_Chuyen_Panel(this.maNV);
         pnlDanhSachDatBan = new DanhSachDatBanPanel(); 
 
         mainContentPanel.add(pnlSoDoBan_Normal, "SoDoBan_Normal"); 

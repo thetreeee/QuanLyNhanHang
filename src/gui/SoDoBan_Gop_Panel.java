@@ -59,6 +59,26 @@ public class SoDoBan_Gop_Panel extends JPanel {
         
         initUI();
         loadData("");
+
+        // ==============================================================
+        // ĐÃ THÊM: CẢM BIẾN TỰ ĐỘNG CẬP NHẬT DỮ LIỆU KHI MỞ TAB NÀY LÊN
+        // ==============================================================
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                SwingUtilities.invokeLater(() -> {
+                    // Dọn dẹp các bàn đang được tick (nếu có) để tránh lỗi logic
+                    listBanGop.clear(); 
+                    
+                    // Quét lại CSDL và làm mới giao diện
+                    if (txtSearch != null) {
+                        loadData(txtSearch.getText().trim()); 
+                    } else {
+                        loadData("");
+                    }
+                });
+            }
+        });
     }
 
     private void initUI() {
@@ -141,8 +161,16 @@ public class SoDoBan_Gop_Panel extends JPanel {
     }
 
     private void clearSelection() {
+        // 1. Chỉ làm rỗng danh sách các bàn đang chọn
         listBanGop.clear();
-        loadData(txtSearch.getText().trim());
+        
+        // 2. Chỉ yêu cầu màn hình quét lại màu sắc (Xóa tick xanh) chứ không load lại dữ liệu
+        if (pnlDanhSachBan != null) {
+            pnlDanhSachBan.repaint();
+        }
+        if (scrollPaneDanhSach != null) {
+            scrollPaneDanhSach.repaint();
+        }
     }
 
     // =========================================================================
@@ -221,8 +249,7 @@ public class SoDoBan_Gop_Panel extends JPanel {
         // =====================================================================
         if (dsDangDung.isEmpty()) {
             int confirm = JOptionPane.showConfirmDialog(this, 
-                "GỘP BÀN TRỐNG: Nhóm khách vãng lai đi đông người.\n" +
-                "Hệ thống sẽ dồn các bàn trống này thành 1 khối để phục vụ.\nBạn có xác nhận không?", 
+                "Xác nhận gộp bàn ? ", 
                 "Xác nhận gộp bàn mới", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
             
             if (confirm == JOptionPane.YES_OPTION) {
@@ -231,7 +258,10 @@ public class SoDoBan_Gop_Panel extends JPanel {
                 for (Ban b : dsTrong) banDAO.updateTrangThaiBan(b.getMaBan(), "Đang dùng"); 
                 
                 JOptionPane.showMessageDialog(this, "Đã tạo khối và mở bàn thành công!");
-                clearSelection();
+                
+                // ĐÃ SỬA: Dọn tick và TẢI LẠI TRANG để cập nhật ngay lập tức
+                listBanGop.clear();
+                loadData(txtSearch.getText().trim());
             }
             return;
         }
@@ -254,7 +284,10 @@ public class SoDoBan_Gop_Panel extends JPanel {
                 for(Ban b : dsTrong) banDAO.updateTrangThaiBan(b.getMaBan(), "Đang dùng"); 
                 
                 JOptionPane.showMessageDialog(this, "Đã ghép thêm bàn thành công!");
-                clearSelection();
+                
+                // ĐÃ SỬA: Dọn tick và TẢI LẠI TRANG để cập nhật ngay lập tức
+                listBanGop.clear();
+                loadData(txtSearch.getText().trim());
             }
             return;
         }
@@ -293,7 +326,10 @@ public class SoDoBan_Gop_Panel extends JPanel {
                     for(Ban b : dsTrong) banDAO.updateTrangThaiBan(b.getMaBan(), "Đang dùng");
                     
                     JOptionPane.showMessageDialog(this, "Ghép khối và Dồn hóa đơn thành công!");
-                    clearSelection(); 
+                    
+                    // ĐÃ SỬA: Dọn tick và TẢI LẠI TRANG để cập nhật ngay lập tức
+                    listBanGop.clear();
+                    loadData(txtSearch.getText().trim());
                 } else {
                     JOptionPane.showMessageDialog(this, "Lỗi xử lý hóa đơn CSDL!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
