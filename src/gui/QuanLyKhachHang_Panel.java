@@ -101,7 +101,7 @@ public class QuanLyKhachHang_Panel extends JPanel {
         txtSearch = new JTextField(20);
         txtSearch.setPreferredSize(new Dimension(300, 38)); 
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtSearch.putClientProperty("JTextField.placeholderText", "Gõ để tìm kiếm ngay..."); 
+        txtSearch.putClientProperty("JTextField.placeholderText", "Tìm Kiếm"); 
         
         // =========================================================
         // TÌM KIẾM REAL-TIME 

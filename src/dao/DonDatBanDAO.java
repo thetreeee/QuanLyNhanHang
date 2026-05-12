@@ -33,12 +33,10 @@ public class DonDatBanDAO {
                 int soKhachCuaBan = rs.getInt("soLuongKhach");
 
                 if (mapDon.containsKey(maDon)) {
-                    // NẾU ĐƠN ĐÃ CÓ TRONG MAP -> Lấy ra, cộng dồn mã bàn và số khách
                     DonDatBan donCu = mapDon.get(maDon);
                     donCu.setMaBan(donCu.getMaBan() + ", " + maBan);
                     donCu.setSoLuongKhach(donCu.getSoLuongKhach() + soKhachCuaBan);
                 } else {
-                    // NẾU LÀ ĐƠN MỚI -> Tạo đối tượng và đưa vào Map
                     DonDatBan donMoi = new DonDatBan(
                         maDon,
                         maBan, 
@@ -71,30 +69,23 @@ public class DonDatBanDAO {
         Connection con = null;
         try {
             con = SQLConnection.getConnection();
-            con.setAutoCommit(false); // Bật Transaction
+            con.setAutoCommit(false); 
 
-            // ==============================================================
-            // BƯỚC A: XỬ LÝ KHÁCH HÀNG THÔNG MINH
-            // ==============================================================
             String maKH = null;
             String sdtKhach = don.getSoDienThoai();
             
-            // 1. Dò tìm xem khách này đã từng ăn ở quán chưa (Dựa vào SĐT)
             String sqlCheckKH = "SELECT maKhachHang FROM KhachHang WHERE soDienThoai = ?";
             try (PreparedStatement psCheck = con.prepareStatement(sqlCheckKH)) {
                 psCheck.setString(1, sdtKhach);
                 try (ResultSet rsKH = psCheck.executeQuery()) {
                     if (rsKH.next()) {
-                        maKH = rsKH.getString("maKhachHang"); // Nếu có thì lấy lại Mã cũ
+                        maKH = rsKH.getString("maKhachHang"); 
                     }
                 }
             }
             
-            // 2. Nếu SĐT lạ (Khách mới hoàn toàn) -> Tạo mã mới và INSERT vào DB
             if (maKH == null) {
-                // ĐÃ ĐỒNG BỘ: Sử dụng hàm sinh mã tuần tự từ KhachHang_DAO
                 maKH = new KhachHang_DAO().tuDongPhatSinhMa(); 
-                
                 String sqlKH = "INSERT INTO KhachHang (maKhachHang, hoTen, soDienThoai) VALUES (?, ?, ?)";
                 try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
                     psKH.setString(1, maKH);
@@ -103,9 +94,7 @@ public class DonDatBanDAO {
                     psKH.executeUpdate();
                 }
             }
-            // ==============================================================
 
-            // --- BƯỚC B: Lưu DonDatBan (Chỉ tạo DUY NHẤT 1 DÒNG) ---
             String sqlDon = "INSERT INTO DonDatBan (maDon, ngayDat, thoiGian, maKhachHang, maNV, trangThai, ghiChu) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement psDon = con.prepareStatement(sqlDon)) {
                 psDon.setString(1, don.getMaDon());
@@ -115,11 +104,9 @@ public class DonDatBanDAO {
                 psDon.setString(5, don.getMaNV()); 
                 psDon.setString(6, don.getTrangThai() != null ? don.getTrangThai() : "Đã đặt");
                 psDon.setString(7, don.getGhiChu());
-                
                 psDon.executeUpdate();
             }
 
-            // --- BƯỚC C: Lưu ChiTietDatBan (Lưu NHIỀU BÀN cùng lúc bằng AddBatch) ---
             int khachMoiBan = don.getSoLuongKhach() / danhSachMaBan.size();
             int khachLe = don.getSoLuongKhach() % danhSachMaBan.size();
             
@@ -128,7 +115,6 @@ public class DonDatBanDAO {
                 for (int i = 0; i < danhSachMaBan.size(); i++) {
                     psCT.setString(1, don.getMaDon());
                     psCT.setString(2, danhSachMaBan.get(i));
-                    // Bàn đầu tiên sẽ gánh số khách lẻ
                     psCT.setInt(3, i == 0 ? (khachMoiBan + khachLe) : khachMoiBan); 
                     psCT.addBatch(); 
                 }
@@ -269,8 +255,7 @@ public class DonDatBanDAO {
     }
 
     /**
-     * 8. HÀM MỚI: LẤY CHI TIẾT BÀN CỦA 1 ĐƠN (Dùng cho Popup Form Chi Tiết)
-     * Trả về Object[] chứa: [Mã bàn, Số lượng khách dự kiến]
+     * 8. LẤY CHI TIẾT BÀN CỦA 1 ĐƠN (Dùng cho Popup Form Chi Tiết)
      */
     public List<Object[]> getChiTietBanCuaDon(String maDon) {
         List<Object[]> listCT = new ArrayList<>();
@@ -281,14 +266,74 @@ public class DonDatBanDAO {
             ps.setString(1, maDon);
             ResultSet rs = ps.executeQuery();
             while(rs.next()){
-                listCT.add(new Object[]{ 
-                    rs.getString("maBan"), 
-                    rs.getInt("soLuongKhach") 
-                });
+                listCT.add(new Object[]{ rs.getString("maBan"), rs.getInt("soLuongKhach") });
             }
         } catch (Exception e) { 
             e.printStackTrace(); 
         }
         return listCT;
+    }
+
+    /**
+     * 9. CẬP NHẬT BÀN VÀ SỐ KHÁCH 
+     * Dùng để Gộp thêm bàn vào đơn đã đặt hoặc đổi số lượng khách
+     */
+    public boolean capNhatBanChoDonDat(String maDon, List<String> danhSachMaBanMoi, int tongKhachMoi) {
+        Connection con = null;
+        try {
+            con = SQLConnection.getConnection();
+            con.setAutoCommit(false);
+
+            // Bước A: Xóa chi tiết bàn cũ
+            String sqlDelete = "DELETE FROM ChiTietDatBan WHERE maDon = ?";
+            try (PreparedStatement ps1 = con.prepareStatement(sqlDelete)) {
+                ps1.setString(1, maDon);
+                ps1.executeUpdate();
+            }
+
+            // Bước B: Thêm danh sách bàn mới (có chia đều số khách)
+            String sqlInsert = "INSERT INTO ChiTietDatBan (maDon, maBan, soLuongKhach) VALUES (?, ?, ?)";
+            try (PreparedStatement ps2 = con.prepareStatement(sqlInsert)) {
+                int khachMoiBan = tongKhachMoi / danhSachMaBanMoi.size();
+                int khachLe = tongKhachMoi % danhSachMaBanMoi.size();
+
+                for (int i = 0; i < danhSachMaBanMoi.size(); i++) {
+                    ps2.setString(1, maDon);
+                    ps2.setString(2, danhSachMaBanMoi.get(i));
+                    ps2.setInt(3, i == 0 ? (khachMoiBan + khachLe) : khachMoiBan);
+                    ps2.addBatch();
+                }
+                ps2.executeBatch();
+            }
+
+            con.commit();
+            return true;
+        } catch (SQLException e) {
+            try { if (con != null) con.rollback(); } catch (SQLException ex) {}
+            e.printStackTrace();
+            return false;
+        } finally {
+            try { if (con != null) con.close(); } catch (SQLException e) {}
+        }
+    }
+    
+    /**
+     * 10. LẤY MÃ KHÁCH HÀNG TỪ MÃ ĐƠN (Dùng cho DialogCheckIn)
+     * Thiết kế theo luồng trực tiếp 1-1, tránh lỗi lấy nhầm khách khác giờ
+     */
+    public String getMaKhachHangByMaDon(String maDon) {
+        String sql = "SELECT maKhachHang FROM DonDatBan WHERE maDon = ?";
+        try (Connection con = connectDB.SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maDon);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("maKhachHang");
+                }
+            }
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+        }
+        return null;
     }
 }

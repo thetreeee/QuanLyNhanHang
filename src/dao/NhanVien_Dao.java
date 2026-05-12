@@ -40,28 +40,31 @@ public class NhanVien_Dao {
 
     public boolean insertNhanVien(NhanVien nv) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            // CẬP NHẬT: Thêm soDienThoai vào câu lệnh INSERT (Tổng cộng 11 dấu chấm hỏi)
-            String sql = "INSERT INTO NhanVien (maNV, hoTen, soDienThoai, gmail, ngaySinh, gioiTinh, soCCCD, luong, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // ĐÃ SỬA: 10 cột tương ứng với đúng 10 dấu chấm hỏi (?)
+            String sql = "INSERT INTO NhanVien (maNV, hoTen, soDienThoai, gmail, ngaySinh, gioiTinh, luong, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = con.prepareStatement(sql);
+            
+            // ĐÃ SỬA: Đánh lại số thứ tự liền mạch từ 1 đến 10
             stmt.setString(1, nv.getMaNV());
             stmt.setString(2, nv.getHoTen());
-            stmt.setString(3, nv.getSoDienThoai()); // Ghi số điện thoại xuống DB
+            stmt.setString(3, nv.getSoDienThoai()); 
             stmt.setString(4, nv.getGmail());
-            stmt.setDate(5, java.sql.Date.valueOf("2000-01-01")); // Giá trị mặc định
+            stmt.setDate(5, java.sql.Date.valueOf("2000-01-01")); 
             stmt.setString(6, nv.getGioiTinh());
-            stmt.setString(7, "000000000000"); // Giá trị mặc định
-            stmt.setDouble(8, 5000000.0); // Mặc định lương cơ bản
-            stmt.setString(9, nv.getMatKhau());
-            stmt.setString(10, nv.getChucVu());
+            stmt.setDouble(7, 5000000.0);         // Đổi từ 8 thành 7
+            stmt.setString(8, nv.getMatKhau());   // Đổi từ 9 thành 8
+            stmt.setString(9, nv.getChucVu());    // Đổi từ 10 thành 9
             
-            // Đảm bảo nhân viên mới luôn có trạng thái là Đang làm
             String trangThai = (nv.getTrangThai() != null && !nv.getTrangThai().trim().isEmpty()) ? nv.getTrangThai() : "Đang làm";
-            stmt.setString(11, trangThai);
+            stmt.setString(10, trangThai);        // Đổi từ 11 thành 10
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            if (e.getErrorCode() == 2627) JOptionPane.showMessageDialog(null, "Mã " + nv.getMaNV() + " đã tồn tại!");
-            else e.printStackTrace();
+            if (e.getErrorCode() == 2627) {
+                JOptionPane.showMessageDialog(null, "Mã " + nv.getMaNV() + " đã tồn tại!");
+            } else {
+                e.printStackTrace();
+            }
             return false;
         }
     }

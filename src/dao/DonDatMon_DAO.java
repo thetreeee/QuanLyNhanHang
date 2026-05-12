@@ -1,10 +1,10 @@
 package dao;
 
+import connectDB.SQLConnection;
 import entity.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import connectDB.SQLConnection;
 
 public class DonDatMon_DAO {
 
@@ -14,13 +14,13 @@ public class DonDatMon_DAO {
              Statement st = con.createStatement();
              ResultSet rs = st.executeQuery("SELECT * FROM DonDatMon ORDER BY thoiGianDat DESC")) {
             while (rs.next()) {
-                DonDatMon d = new DonDatMon(
-                        rs.getString("maDonDat"),
-                        rs.getTimestamp("thoiGianDat").toLocalDateTime(),
-                        rs.getString("ghiChu"),
-                        rs.getString("maNV"),
-                        rs.getString("maBan")
-                );
+                DonDatMon d = new DonDatMon();
+                d.setMaDonDat(rs.getString("maDonDat"));
+                d.setThoiGianDat(rs.getTimestamp("thoiGianDat").toLocalDateTime());
+                d.setGhiChu(rs.getString("ghiChu"));
+                d.setMaNV(rs.getString("maNV"));
+                d.setMaBan(rs.getString("maBan"));
+                d.setMaKhachHang(rs.getString("maKhachHang")); 
                 list.add(d);
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -34,13 +34,14 @@ public class DonDatMon_DAO {
             ps.setString(1, maBan);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new DonDatMon(
-                        rs.getString("maDonDat"),
-                        rs.getTimestamp("thoiGianDat").toLocalDateTime(),
-                        rs.getString("ghiChu"),
-                        rs.getString("maNV"),
-                        rs.getString("maBan")
-                    );
+                    DonDatMon d = new DonDatMon();
+                    d.setMaDonDat(rs.getString("maDonDat"));
+                    d.setThoiGianDat(rs.getTimestamp("thoiGianDat").toLocalDateTime());
+                    d.setGhiChu(rs.getString("ghiChu"));
+                    d.setMaNV(rs.getString("maNV"));
+                    d.setMaBan(rs.getString("maBan"));
+                    d.setMaKhachHang(rs.getString("maKhachHang")); 
+                    return d;
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -49,7 +50,8 @@ public class DonDatMon_DAO {
     
     public String phatSinhMaDon() {
         int max = 0;
-        String sql = "SELECT maDonDat FROM DonDatMon WHERE maDonDat LIKE 'D%'";
+        // Lưu ý: Nếu Đơn món của bạn dùng tiền tố D thì đổi chữ M thành D nhé
+        String sql = "SELECT maDonDat FROM DonDatMon WHERE maDonDat LIKE 'M%'"; 
         try (Connection con = SQLConnection.getConnection();
              Statement st = con.createStatement();
              ResultSet rs = st.executeQuery(sql)) {
@@ -63,12 +65,15 @@ public class DonDatMon_DAO {
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
-        return String.format("D%03d", max + 1);
+        return String.format("M%03d", max + 1); 
     }
     
-    public String createDon(String maBan, String maNV, String ghiChu) {
+    // ==============================================================
+    // HÀM TẠO ĐƠN GỌI MÓN (CÓ XỬ LÝ MÃ KHÁCH HÀNG / VÃNG LAI)
+    // ==============================================================
+    public String createDon(String maBan, String maNV, String ghiChu, String maKhachHang) {
         String maDon = phatSinhMaDon();
-        String sql = "INSERT INTO DonDatMon(maDonDat, thoiGianDat, ghiChu, maNV, maBan) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO DonDatMon(maDonDat, thoiGianDat, ghiChu, maNV, maBan, maKhachHang) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, maDon);
@@ -76,11 +81,27 @@ public class DonDatMon_DAO {
             ps.setString(3, ghiChu);
             ps.setString(4, maNV);
             ps.setString(5, maBan);
+            
+            // Xử lý Khách vãng lai (không truyền mã)
+            if (maKhachHang == null || maKhachHang.trim().isEmpty()) {
+                ps.setNull(6, java.sql.Types.VARCHAR);
+            } else {
+                ps.setString(6, maKhachHang);
+            }
+            
             ps.executeUpdate();
         } catch (Exception e) { e.printStackTrace(); }
         return maDon;
     }
     
+    // Nạp chồng phương thức cho tiện dùng khi chắc chắn là Khách vãng lai
+    public String createDon(String maBan, String maNV, String ghiChu) {
+        return createDon(maBan, maNV, ghiChu, null);
+    }
+
+    // ==============================================================
+    // CÁC HÀM CẬP NHẬT / XÓA / KIỂM TRA
+    // ==============================================================
     public DonDatMon getById(String maDon) {
         String sql = "SELECT * FROM DonDatMon WHERE maDonDat = ?";
         try (Connection con = SQLConnection.getConnection();
@@ -94,6 +115,7 @@ public class DonDatMon_DAO {
                     d.setGhiChu(rs.getString("ghiChu"));
                     d.setMaNV(rs.getString("maNV"));
                     d.setMaBan(rs.getString("maBan"));
+                    d.setMaKhachHang(rs.getString("maKhachHang")); 
                     return d;
                 }
             }
@@ -121,38 +143,24 @@ public class DonDatMon_DAO {
         } catch (Exception e) { e.printStackTrace(); return false; }
     }
 
-    // ==============================================================
-    // HÀM KIỂM TRA BÀN CÓ ĐƠN CHƯA THANH TOÁN (Dùng để chặn Về Trống)
-    // ==============================================================
     public boolean kiemTraBanCoDonChuaThanhToan(String maBan) {
-        // SQL: Đếm số đơn đang gắn với mã bàn này
-        // Lưu ý: Nếu trong CSDL của bạn có thêm cột Trạng Thái (VD: Đã thanh toán, Chưa thanh toán) 
-        // thì hãy thêm điều kiện AND trangThai = 'Chưa thanh toán' vào nhé.
         String sql = "SELECT COUNT(*) FROM DonDatMon WHERE maBan = ?"; 
-        
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-             
             ps.setString(1, maBan);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getInt(1) > 0; // Nếu > 0 nghĩa là đang có đơn
+                    return rs.getInt(1) > 0; 
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
         return false;
     }
 
-    // ==============================================================
-    // HÀM GỘP ĐƠN SIÊU TỐI ƯU (ĐỔI CHỦ SỞ HỮU HÓA ĐƠN)
-    // ==============================================================
     public boolean gopDonDatMon(String maBanChinh, List<String> listBanPhu) {
         try (Connection con = SQLConnection.getConnection()) {
             if (listBanPhu == null || listBanPhu.isEmpty()) return true;
 
-            // Bước 1: Sang tên đổi chủ. Đổi "maBan" của TẤT CẢ các phiếu thuộc các Bàn Phụ thành Bàn Chính.
             StringBuilder inClause = new StringBuilder();
             for (int i = 0; i < listBanPhu.size(); i++) {
                 inClause.append("'").append(listBanPhu.get(i).toUpperCase()).append("'");
@@ -165,7 +173,6 @@ public class DonDatMon_DAO {
                 psUpdate.executeUpdate();
             }
 
-            // Bước 2: Cập nhật dòng chữ (Gồm: ...) vào phiếu mới nhất của Bàn Chính để khu vực Bếp dễ nhìn
             String sqlFind = "SELECT TOP 1 maDonDat, ghiChu FROM DonDatMon WHERE maBan = ? ORDER BY thoiGianDat DESC";
             try (PreparedStatement psFind = con.prepareStatement(sqlFind)) {
                 psFind.setString(1, maBanChinh);
@@ -175,12 +182,10 @@ public class DonDatMon_DAO {
                         String noteCu = rs.getString("ghiChu");
                         if (noteCu == null) noteCu = "";
                         
-                        // Lọc bỏ rác "(Gồm:...)" cũ
                         noteCu = noteCu.replaceAll("\\(Gồm:[^)]+\\)", "").trim();
                         String strGop = "(Gồm: " + String.join(", ", listBanPhu) + ")";
                         String newNote = noteCu.isEmpty() ? strGop : noteCu + " " + strGop;
                         
-                        // Ghi đè ghi chú mới
                         try (PreparedStatement psNote = con.prepareStatement("UPDATE DonDatMon SET ghiChu = ? WHERE maDonDat = ?")) {
                             psNote.setString(1, newNote);
                             psNote.setString(2, maDon);
@@ -189,7 +194,6 @@ public class DonDatMon_DAO {
                     }
                 }
             }
-            
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -197,25 +201,43 @@ public class DonDatMon_DAO {
         }
     }
 
-    // ==============================================================
-    // HÀM CHUYỂN BÀN (DỜI TOÀN BỘ ĐƠN HÀNG CỦA BÀN CŨ)
-    // ==============================================================
     public boolean chuyenBan(String maBanCu, String maBanMoi) {
-        // SQL: Quét toàn bộ các đơn đang gắn với bàn cũ và đổi thành mã bàn mới
         String sql = "UPDATE DonDatMon SET maBan = ? WHERE maBan = ?"; 
-        
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            
-            ps.setString(1, maBanMoi); // Bàn đích đến
-            ps.setString(2, maBanCu);  // Bàn cũ đang ngồi
-            
+            ps.setString(1, maBanMoi); 
+            ps.setString(2, maBanCu);  
             int n = ps.executeUpdate();
-            return n > 0; // Trả về true nếu có ít nhất 1 đơn đặt món được chuyển
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            return n > 0; 
+        } catch (Exception e) { e.printStackTrace(); }
         return false;
+    }
+
+    // ==============================================================
+    // XỬ LÝ TRƯỜNG HỢP KHÁCH VÀO NGỒI NHƯNG ĐI VỀ KHÔNG GỌI MÓN
+    // ==============================================================
+    public boolean kiemTraDonCoMonAnChua(String maBan) {
+        // Kết hợp với bảng ChiTietDatMon để xem bàn này đã order món nào chưa
+        String sql = "SELECT COUNT(*) FROM ChiTietDatMon c JOIN DonDatMon d ON c.maDonDat = d.maDonDat WHERE d.maBan = ?"; 
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0; // Trả về true nếu đã có ít nhất 1 món
+                }
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return false;
+    }
+
+    public void xoaDonRongCuaBan(String maBan) {
+        // Lệnh này cực kỳ an toàn: CHỈ XÓA những Đơn chưa có chi tiết món ăn (rỗng)
+        String sql = "DELETE FROM DonDatMon WHERE maBan = ? AND maDonDat NOT IN (SELECT maDonDat FROM ChiTietDatMon)";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            ps.executeUpdate();
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }
