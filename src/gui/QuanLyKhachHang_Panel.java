@@ -1,6 +1,8 @@
 package gui;
 
-import dao.GiaBan_DAO;
+import dao.KhachHang_DAO;
+import entity.KhachHang;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
@@ -11,16 +13,18 @@ import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
-import java.util.Vector;
 
-public class QuanLyGiaBanPanel extends JPanel {
+public class QuanLyKhachHang_Panel extends JPanel {
 
     private JTable table;
     private DefaultTableModel model;
     private JTextField txtSearch;
+    private JButton btnAdd;
 
     private final Color BG_WHITE = Color.WHITE;
     private final Color TIME_BANNER_BG = new Color(255, 246, 246);
@@ -28,11 +32,13 @@ public class QuanLyGiaBanPanel extends JPanel {
     private final Color TABLE_HEADER_TEXT = new Color(180, 50, 60);
     private final Color TEXT_DARK = new Color(44, 56, 74);
     private final Color BTN_ADD_YELLOW = new Color(255, 209, 102); 
-    private final Color BTN_SEARCH_PINK = new Color(255, 102, 102);
 
-    private GiaBan_DAO giaBan_dao = new GiaBan_DAO();
+    private KhachHang_DAO khDAO = new KhachHang_DAO();
+    private String vaiTro;
+    private DecimalFormat df = new DecimalFormat("#,###");
 
-    public QuanLyGiaBanPanel() {
+    public QuanLyKhachHang_Panel(String vaiTro) {
+        this.vaiTro = vaiTro;
         setLayout(new BorderLayout(0, 20));
         setBackground(BG_WHITE);
         setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -50,7 +56,6 @@ public class QuanLyGiaBanPanel extends JPanel {
         lblTime.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblTime.setForeground(Color.BLACK);
         
-        // Cập nhật đồng hồ sang tiếng Việt chuẩn
         Locale localeVI = new Locale("vi", "VN");
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("EEEE, 'ngày' dd/MM/yyyy - HH:mm:ss", localeVI);
         new Timer(1000, e -> lblTime.setText(LocalDateTime.now().format(dtf))).start();
@@ -63,16 +68,18 @@ public class QuanLyGiaBanPanel extends JPanel {
         JPanel titleActionPanel = new JPanel(new BorderLayout());
         titleActionPanel.setOpaque(false);
 
-        JLabel lblTitle = new JLabel("QUẢN LÝ BẢNG GIÁ");
+        JLabel lblTitle = new JLabel("QUẢN LÝ KHÁCH HÀNG");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(TEXT_DARK);
         titleActionPanel.add(lblTitle, BorderLayout.WEST);
 
-        JButton btnAdd = createStyledButton("+ Thêm Bảng Giá", BTN_ADD_YELLOW, Color.BLACK);
-        btnAdd.setPreferredSize(new Dimension(160, 42)); 
+        btnAdd = createStyledButton("+ Thêm Khách Hàng", BTN_ADD_YELLOW, Color.BLACK);
+        btnAdd.setPreferredSize(new Dimension(180, 42)); 
+        
+        // ĐÃ NÂNG CẤP: Dùng Frame chung thay vì ép kiểu GUIDashBoard để tránh lỗi ClassCastException
         btnAdd.addActionListener(e -> {
-            GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this);
-            new ThemGiaBanDialog(dashBoard, this).setVisible(true);
+            Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+            new ThemKhachHangDialog(owner, this).setVisible(true);
         });
 
         JPanel btnActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -89,63 +96,58 @@ public class QuanLyGiaBanPanel extends JPanel {
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
         searchPanel.setOpaque(false);
-        searchPanel.add(createLabel("Tìm theo Mã hoặc Mô tả:")); 
+        searchPanel.add(createLabel("Tìm theo SĐT hoặc Tên:")); 
         
         txtSearch = new JTextField(20);
-        txtSearch.setPreferredSize(new Dimension(250, 38));
+        txtSearch.setPreferredSize(new Dimension(300, 38)); 
         txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        searchPanel.add(txtSearch);
-
+        txtSearch.putClientProperty("JTextField.placeholderText", "Gõ để tìm kiếm ngay..."); 
+        
         // =========================================================
-        // SỰ KIỆN TÌM KIẾM REAL-TIME NGAY KHI GÕ
+        // TÌM KIẾM REAL-TIME 
         // =========================================================
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                thucHienTimKiem(txtSearch.getText().trim());
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                thucHienTimKiem(txtSearch.getText().trim());
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                thucHienTimKiem(txtSearch.getText().trim());
-            }
+            @Override public void insertUpdate(DocumentEvent e) { locTimKiem(); }
+            @Override public void removeUpdate(DocumentEvent e) { locTimKiem(); }
+            @Override public void changedUpdate(DocumentEvent e) { locTimKiem(); }
         });
-
-        // Nút bấm vẫn giữ lại để cho đẹp giao diện hoặc cho thói quen người dùng
-        JButton btnXem = createStyledButton("Lọc dữ liệu", BTN_SEARCH_PINK, Color.WHITE);
-        btnXem.addActionListener(e -> thucHienTimKiem(txtSearch.getText().trim()));
-        searchPanel.add(btnXem);
         
+        searchPanel.add(txtSearch);
         centerPanel.add(searchPanel, BorderLayout.NORTH);
 
-        // ĐỔI CỘT CHO PHÙ HỢP MÔ HÌNH MASTER-DETAIL
-        String[] columnNames = {"Mã Bảng Giá", "Mô tả (Tên đợt giá)", "Ngày bắt đầu", "Ngày kết thúc", "Trạng thái"};
+        // BẢNG DỮ LIỆU
+        String[] columnNames = {"Mã KH", "Họ Tên", "Số Điện Thoại", "Tổng Chi Tiêu (VNĐ)", "Điểm Tích Lũy", "Hạng"};
         model = new DefaultTableModel(null, columnNames) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return column == 0; // Chỉ cột 0 có nút Xóa mới được "click"
+                return column == 0 && vaiTro.equalsIgnoreCase("Quản lý"); 
             }
         };
 
         table = new JTable(model);
         setupTableStyle();
+        thietLapPhanQuyen(); 
 
-        // SỰ KIỆN DOUBLE CLICK ĐỂ MỞ CỬA SỔ SỬA CHI TIẾT
+        // SỰ KIỆN DOUBLE CLICK ĐỂ MỞ CỬA SỔ SỬA
         table.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                if (vaiTro.equalsIgnoreCase("Thu ngân")) return; 
+
                 int row = table.getSelectedRow();
                 int col = table.getSelectedColumn();
                 if (row == -1) return;
                 
-                // Tránh nhầm với click vào nút Xóa ở cột 0
-                if (e.getClickCount() == 2 && col != -1) {
-                    thucHienSuaGia(row);
+                if (e.getClickCount() == 2 && col != 0) {
+                    String maKH = model.getValueAt(row, 0).toString();
+                    
+                    // ĐÃ NÂNG CẤP: Dùng Frame chung để không bị văng lỗi khi chạy trên Lễ Tân
+                    Frame owner = (Frame) SwingUtilities.getWindowAncestor(QuanLyKhachHang_Panel.this);
+                    
+                    // TODO: Mở comment dòng này khi bạn thiết kế xong SuaKhachHangDialog
+                     new SuaKhachHangDialog(owner, QuanLyKhachHang_Panel.this, maKH).setVisible(true);
+                    
+//                    JOptionPane.showMessageDialog(QuanLyKhachHang_Panel.this, "Mở form Cập Nhật Khách " + maKH);
                 }
             }
         });
@@ -159,49 +161,54 @@ public class QuanLyGiaBanPanel extends JPanel {
         loadDataToTable();
     }
 
-    // =========================================================
-    // HÀM TÌM KIẾM ĐÃ BỎ JOPTIONPANE ĐỂ TRÁNH SPAM LỖI KHI GÕ
-    // =========================================================
-    private void thucHienTimKiem(String keyword) {
+    private void thietLapPhanQuyen() {
+        if (vaiTro.equalsIgnoreCase("Lễ tân")) {
+            table.getColumnModel().getColumn(3).setMinWidth(0);
+            table.getColumnModel().getColumn(3).setMaxWidth(0);
+            table.getColumnModel().getColumn(4).setMinWidth(0);
+            table.getColumnModel().getColumn(4).setMaxWidth(0);
+        } else if (vaiTro.equalsIgnoreCase("Thu ngân")) {
+            btnAdd.setVisible(false);
+        }
+    }
+
+    private void locTimKiem() {
+        String keyword = txtSearch.getText().trim().toLowerCase();
         model.setRowCount(0);
-        Vector<Vector<Object>> data = giaBan_dao.searchBangGiaHeader(keyword);
-        
-        for (Vector<Object> row : data) {
-            model.addRow(row);
+        List<KhachHang> ds = khDAO.getAllKhachHang();
+        for (KhachHang kh : ds) {
+            if (kh.getHoTen().toLowerCase().contains(keyword) || kh.getSoDienThoai().contains(keyword)) {
+                model.addRow(new Object[]{
+                    kh.getMaKH(), kh.getHoTen(), kh.getSoDienThoai(),
+                    df.format(kh.getTongChiTieu()), kh.getDiemHienTai(), kh.getHangThanhVien()
+                });
+            }
         }
     }
 
     public void loadDataToTable() {
         model.setRowCount(0);
-        Vector<Vector<Object>> data = giaBan_dao.searchBangGiaHeader(""); 
-        for (Vector<Object> row : data) {
-            model.addRow(row);
+        List<KhachHang> ds = khDAO.getAllKhachHang(); 
+        for (KhachHang kh : ds) {
+            model.addRow(new Object[]{
+                kh.getMaKH(), kh.getHoTen(), kh.getSoDienThoai(),
+                df.format(kh.getTongChiTieu()), kh.getDiemHienTai(), kh.getHangThanhVien()
+            });
         }
     }
 
-    private void thucHienSuaGia(int row) {
-        String maBG = model.getValueAt(row, 0).toString();
-        
-        GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this);
-        ThucDonPanel pnlThucDon = dashBoard.getPnlThucDon();
-        
-        new SuaGiaBanDialog(dashBoard, this, maBG, pnlThucDon).setVisible(true);
-    }
-
-    private void thucHienXoaGiaBan(int row) {
-        String maBG = model.getValueAt(row, 0).toString();
-        String moTa = model.getValueAt(row, 1).toString();
+    private void thucHienXoaKhachHang(int row) {
+        String maKH = model.getValueAt(row, 0).toString();
+        String tenKH = model.getValueAt(row, 1).toString();
 
         int confirm = JOptionPane.showConfirmDialog(this, 
-            "Bạn có chắc chắn muốn xóa Bảng giá [" + maBG + " - " + moTa + "]?\nThao tác này sẽ xóa toàn bộ chi tiết giá bên trong!", 
+            "Xóa khách hàng [" + tenKH + "] khỏi hệ thống?\n(Dữ liệu sẽ được ẩn đi để không ảnh hưởng hóa đơn cũ)", 
             "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (giaBan_dao.deleteGiaBan(maBG)) {
+            if (khDAO.xoaMemKhachHang(maKH)) {
                 JOptionPane.showMessageDialog(this, "Xóa thành công!");
                 loadDataToTable();
-                GUIDashBoard dashBoard = (GUIDashBoard) SwingUtilities.getWindowAncestor(this);
-                dashBoard.getPnlThucDon().loadDataFromDatabase();
             } else {
                 JOptionPane.showMessageDialog(this, "Có lỗi xảy ra khi xóa!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
@@ -228,79 +235,32 @@ public class QuanLyGiaBanPanel extends JPanel {
 
         for (int i = 0; i < table.getColumnCount(); i++) {
             if (i == 0) {
-                table.getColumnModel().getColumn(i).setCellRenderer(new ItemWithDeleteRenderer());
-                table.getColumnModel().getColumn(i).setCellEditor(new ItemWithDeleteEditor(new JCheckBox()));
+                boolean isQuanLy = vaiTro.equalsIgnoreCase("Quản lý");
+                table.getColumnModel().getColumn(i).setCellRenderer(new ItemWithDeleteRenderer(isQuanLy));
+                if (isQuanLy) {
+                    table.getColumnModel().getColumn(i).setCellEditor(new ItemWithDeleteEditor(new JCheckBox()));
+                }
                 table.getColumnModel().getColumn(i).setPreferredWidth(120);
-            } else if (i == 1) {
-                table.getColumnModel().getColumn(i).setPreferredWidth(250);
-            } else if (i == 4) { // Trạng thái
-                table.getColumnModel().getColumn(i).setCellRenderer(new DefaultTableCellRenderer() {
-                    @Override
-                    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                        
-                        String originalStatus = value != null ? value.toString() : "";
-                        String displayStatus = originalStatus;
-
-                        // --- THUẬT TOÁN ĐỔI TRẠNG THÁI ẢO DỰA VÀO NGÀY KẾT THÚC ---
-                        Object endDateObj = table.getValueAt(row, 3);
-                        if (endDateObj != null && !endDateObj.toString().isEmpty()) {
-                            try {
-                                String endDateStr = endDateObj.toString();
-                                java.time.LocalDate endDate = null;
-                                
-                                // Hỗ trợ cả 2 định dạng (có xuyệt hoặc có gạch ngang)
-                                if (endDateStr.contains("-")) {
-                                    endDate = java.time.LocalDate.parse(endDateStr, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-                                } else if (endDateStr.contains("/")) {
-                                    endDate = java.time.LocalDate.parse(endDateStr, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                                }
-
-                                // Nếu ngày kết thúc đã qua so với ngày hôm nay -> Đổi ảo thành "Quá Ngày"
-                                if (endDate != null && endDate.isBefore(java.time.LocalDate.now())) {
-                                    displayStatus = "Quá Ngày";
-                                }
-                            } catch (Exception ex) {
-                                // Bỏ qua lỗi ép kiểu
-                            }
-                        }
-
-                        // Đổ chữ mới (displayStatus) ra màn hình thay vì chữ cũ
-                        Component c = super.getTableCellRendererComponent(table, displayStatus, isSelected, hasFocus, row, column);
-                        setHorizontalAlignment(JLabel.CENTER);
-                        
-                        // Cấu hình màu sắc
-                        if (displayStatus.equals("Quá Ngày")) {
-                            setForeground(Color.RED);
-                            setFont(getFont().deriveFont(Font.BOLD));
-                        } else if (displayStatus.equals("Đang áp dụng")) {
-                            setForeground(isSelected ? new Color(0, 100, 0) : new Color(0, 153, 0)); 
-                            setFont(getFont().deriveFont(Font.BOLD));
-                        } else {
-                            setForeground(Color.RED);
-                        }
-                        
-                        return c;
-                    }
-                });
             } else {
                 table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
             }
         }
     }
 
-    // --- RENDERER & EDITOR (Dấu x đỏ nhỏ góc trái trên) ---
     class ItemWithDeleteRenderer extends JPanel implements javax.swing.table.TableCellRenderer {
         private final JLabel lblDelete = new JLabel("x");
         private final JLabel lblText = new JLabel();
 
-        public ItemWithDeleteRenderer() {
+        public ItemWithDeleteRenderer(boolean showDelete) {
             setLayout(new BorderLayout(5, 0));
             setBorder(new EmptyBorder(0, 10, 0, 0));
+            
             lblDelete.setForeground(Color.RED);
             lblDelete.setFont(new Font("Arial", Font.BOLD, 15)); 
-            lblDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
             lblText.setFont(new Font("Segoe UI", Font.BOLD, 15)); 
-            add(lblDelete, BorderLayout.WEST); 
+            
+            if (showDelete) add(lblDelete, BorderLayout.WEST); 
             add(lblText, BorderLayout.CENTER);  
             setOpaque(true);
         }
@@ -331,7 +291,7 @@ public class QuanLyGiaBanPanel extends JPanel {
             
             btnDelete.addActionListener(e -> {
                 fireEditingStopped();
-                thucHienXoaGiaBan(currentRow);
+                thucHienXoaKhachHang(currentRow);
             });
             lblText.setFont(new Font("Segoe UI", Font.BOLD, 15));
             panel.add(btnDelete, BorderLayout.WEST);

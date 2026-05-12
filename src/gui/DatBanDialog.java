@@ -12,7 +12,6 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -37,7 +36,7 @@ public class DatBanDialog extends JDialog {
         this.ban = ban;
         this.dsDonDat = dsDonDat;
 
-        setSize(900, 500);
+        setSize(1000, 500); // Mở rộng form ra một chút để chứa thêm cột Mã NV
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout(0, 0));
         getContentPane().setBackground(Color.WHITE);
@@ -54,12 +53,15 @@ public class DatBanDialog extends JDialog {
         add(pnlHeader, BorderLayout.NORTH);
 
         // --- 2. JTABLE DATA ---
-        String[] cols = {"Mã đơn", "Họ tên", "Số điện thoại", "Ngày đặt", "Thời gian", "Số lượng khách", "Trạng thái"};
+        // ĐÃ SỬA: Bổ sung thêm cột "Mã nhân viên" vào vị trí số 2
+        String[] cols = {"Mã đơn", "Mã NV", "Họ tên", "Số điện thoại", "Ngày đặt", "Thời gian", "Số lượng khách", "Trạng thái"};
         
         model = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { 
-                return column == 1 || column == 2 || column == 6; 
+                // ĐÃ SỬA: Chỉ cho phép sửa Họ Tên (2), Số điện thoại (3), và Trạng thái (7)
+                // Các cột Mã đơn (0) và Mã NV (1) sẽ bị khóa cứng (Read-only)
+                return column == 2 || column == 3 || column == 7; 
             }
         };
         table = new JTable(model);
@@ -87,9 +89,10 @@ public class DatBanDialog extends JDialog {
 
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); 
-        table.getColumnModel().getColumn(5).setCellRenderer(centerRenderer); 
-        table.getColumnModel().getColumn(6).setCellRenderer(centerRenderer); 
+        table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer); // Mã đơn
+        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer); // Mã NV
+        table.getColumnModel().getColumn(6).setCellRenderer(centerRenderer); // Số lượng khách
+        table.getColumnModel().getColumn(7).setCellRenderer(centerRenderer); // Trạng thái
 
         // --- COMBOBOX TRẠNG THÁI ---
         JComboBox<String> cbTrangThai = new JComboBox<>(new String[]{"Đã đặt", "Đã hủy"});
@@ -97,7 +100,9 @@ public class DatBanDialog extends JDialog {
         cbTrangThai.setBackground(Color.WHITE);
         DefaultCellEditor trangThaiEditor = new DefaultCellEditor(cbTrangThai);
         trangThaiEditor.setClickCountToStart(2);
-        table.getColumnModel().getColumn(6).setCellEditor(trangThaiEditor);
+        
+        // ĐÃ SỬA: Cập nhật index của cột Trạng thái thành 7
+        table.getColumnModel().getColumn(7).setCellEditor(trangThaiEditor);
 
         loadDataToTable();
 
@@ -107,10 +112,11 @@ public class DatBanDialog extends JDialog {
             public void tableChanged(TableModelEvent e) {
                 if (isUpdatingTable) return; 
 
-                if (e.getType() == TableModelEvent.UPDATE && e.getColumn() == 6) {
+                // ĐÃ SỬA: Bắt sự kiện ở cột số 7 (Trạng thái)
+                if (e.getType() == TableModelEvent.UPDATE && e.getColumn() == 7) {
                     int row = e.getFirstRow();
                     String maDon = model.getValueAt(row, 0).toString();
-                    String trangThaiMoi = model.getValueAt(row, 6).toString();
+                    String trangThaiMoi = model.getValueAt(row, 7).toString();
                     
                     DonDatBan currentDon = dsDonDat.stream()
                             .filter(d -> d.getMaDon().equals(maDon)).findFirst().orElse(null);
@@ -124,7 +130,7 @@ public class DatBanDialog extends JDialog {
                                     "Cảnh báo trùng lịch", JOptionPane.WARNING_MESSAGE);
                                 
                                 isUpdatingTable = true;
-                                model.setValueAt("Đã hủy", row, 6); 
+                                model.setValueAt("Đã hủy", row, 7); 
                                 isUpdatingTable = false;
                                 return; 
                             }
@@ -173,6 +179,7 @@ public class DatBanDialog extends JDialog {
         for (DonDatBan d : dsDonDat) {
             model.addRow(new Object[]{
                 d.getMaDon(),
+                d.getMaNV() != null ? d.getMaNV() : "N/A", // ĐÃ SỬA: Thêm Mã NV vào bảng
                 d.getTenKhachHang() != null ? d.getTenKhachHang() : "",
                 d.getSoDienThoai() != null ? d.getSoDienThoai() : "",
                 d.getNgayDat() != null ? d.getNgayDat().format(dfNgay) : "",
@@ -190,13 +197,9 @@ public class DatBanDialog extends JDialog {
         }
 
         try (Connection con = SQLConnection.getConnection()) {
-            // Tắt auto-commit để thực hiện giao dịch (Transaction) an toàn cho 2 bảng
             con.setAutoCommit(false); 
             
-            // 1. Câu lệnh update Trạng thái cho bảng DonDatBan
             String sqlDon = "UPDATE DonDatBan SET trangThai = ? WHERE maDon = ?";
-            
-            // 2. Câu lệnh update Họ tên và SĐT cho bảng KhachHang 
             String sqlKhach = "UPDATE KhachHang SET hoTen = ?, soDienThoai = ? WHERE maKhachHang = (SELECT maKhachHang FROM DonDatBan WHERE maDon = ?)";
             
             try (PreparedStatement psDon = con.prepareStatement(sqlDon);
@@ -204,33 +207,31 @@ public class DatBanDialog extends JDialog {
                  
                 for (int i = 0; i < table.getRowCount(); i++) {
                     String maDon = model.getValueAt(i, 0).toString();
-                    String tenKhach = model.getValueAt(i, 1).toString().trim();
-                    String sdt = model.getValueAt(i, 2).toString().trim();
-                    String trangThai = model.getValueAt(i, 6).toString();
+                    
+                    // ĐÃ SỬA: Đẩy Index lên để bỏ qua cột Mã NV (Index 1) vì nó Read-only
+                    String tenKhach = model.getValueAt(i, 2).toString().trim();
+                    String sdt = model.getValueAt(i, 3).toString().trim();
+                    String trangThai = model.getValueAt(i, 7).toString();
 
-                    // Nạp dữ liệu Batch cho bảng DonDatBan
                     psDon.setString(1, trangThai);
                     psDon.setString(2, maDon);
                     psDon.addBatch(); 
                     
-                    // Nạp dữ liệu Batch cho bảng KhachHang
                     psKhach.setString(1, tenKhach);
                     psKhach.setString(2, sdt);
                     psKhach.setString(3, maDon);
                     psKhach.addBatch();
                 }
                 
-                // Thực thi cả 2 Batch
                 psDon.executeBatch();
                 psKhach.executeBatch();
                 
-                // Nếu mọi thứ trơn tru thì Commit (chốt lưu) xuống CSDL
                 con.commit(); 
             } catch (Exception e) {
-                con.rollback(); // Nếu có bất kỳ lỗi gì xảy ra, hoàn tác không lưu gì cả
+                con.rollback(); 
                 throw e; 
             } finally {
-                con.setAutoCommit(true); // Trả lại trạng thái mặc định
+                con.setAutoCommit(true); 
             }
             
             JOptionPane.showMessageDialog(this, "Đã cập nhật thông tin thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);

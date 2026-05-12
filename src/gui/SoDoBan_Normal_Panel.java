@@ -39,7 +39,6 @@ public class SoDoBan_Normal_Panel extends JPanel {
     private DonDatMon_DAO donDatMonDAO;
     private JPanel pnlDanhSachBan;
     
-    // ĐÃ THÊM: Chuyển thanh cuộn thành biến toàn cục để kiểm soát dễ dàng
     private JScrollPane scrollPaneDanhSach; 
     
     private JPanel pnlFloorFilter;
@@ -72,19 +71,14 @@ public class SoDoBan_Normal_Panel extends JPanel {
     public SoDoBan_Normal_Panel(String maNV) {
         this.maNV = maNV;
         
-        // BẮT BUỘC PHẢI CÓ 3 DÒNG NÀY (ĐỂ TẠO KẾT NỐI XUỐNG CSDL)
         banDAO = new BanDAO();
         donDatBanDAO = new DonDatBanDAO(); 
         donDatMonDAO = new DonDatMon_DAO(); 
         
-        initUI(); // Khởi tạo giao diện
+        initUI(); 
         
-        // Kéo dữ liệu đơn đặt bàn lên trước
         dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
-        
-        // Đổ dữ liệu vào giao diện (Dòng này sẽ lỗi nếu thiếu banDAO = new BanDAO(); ở trên)
         loadData(""); 
-        
         startAutoCheckTimer(); 
 
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -240,7 +234,6 @@ public class SoDoBan_Normal_Panel extends JPanel {
         pnlDanhSachBan.setLayout(new GridBagLayout()); 
         pnlDanhSachBan.setOpaque(false);
         
-        // ĐÃ SỬA: Gắn JScrollPane vào biến toàn cục
         scrollPaneDanhSach = new JScrollPane(pnlDanhSachBan); 
         scrollPaneDanhSach.setBorder(null);
         scrollPaneDanhSach.setViewportBorder(null);
@@ -343,10 +336,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
             return;
         }
 
-        // ==============================================================
-        // 1. ĐÃ THÊM: KIỂM TRA CÁC BÀN ĐƯỢC CHỌN PHẢI NẰM CÙNG 1 TẦNG
-        // ==============================================================
-        String khuVucChung = listBanDatNhieu.get(0).getViTri(); // Lấy vị trí của bàn đầu tiên làm mốc
+        String khuVucChung = listBanDatNhieu.get(0).getViTri(); 
         boolean cungKhuVuc = listBanDatNhieu.stream().allMatch(b -> b.getViTri().equalsIgnoreCase(khuVucChung));
         
         if (!cungKhuVuc) {
@@ -354,25 +344,22 @@ public class SoDoBan_Normal_Panel extends JPanel {
                 "Lỗi ghép bàn: Các bàn được chọn phải nằm trên cùng 1 khu vực!\n\n" +
                 "\nVui lòng chọn lại bàn hợp lý.", 
                 "Lỗi khác khu vực", JOptionPane.ERROR_MESSAGE);
-            return; // Chặn đứng ngay lập tức
+            return; 
         }
 
         int totalSeats = listBanDatNhieu.stream().mapToInt(Ban::getSoGhe).sum();
         
-        // 2. CHẶN NẾU CHỌN THIẾU GHẾ
         if (totalSeats < filterSoLuongKhach) {
             JOptionPane.showMessageDialog(this, "Bạn mới chọn được " + totalSeats + " ghế, chưa đủ cho " + filterSoLuongKhach + " khách!\nVui lòng tick chọn thêm bàn.", "Nhắc nhở", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // 3. CẢNH BÁO NẾU CHỌN DƯ QUÁ NHIỀU GHẾ (Vượt ngưỡng +5)
         if (totalSeats > filterSoLuongKhach + 5) {
             int confirm = JOptionPane.showConfirmDialog(this, 
                 "Số ghế bạn chọn (" + totalSeats + " ghế) đang vượt quá khá nhiều so với lượng khách dự kiến (" + filterSoLuongKhach + " người).\n\n" +
                 "\nBạn có chắc chắn muốn giữ nguyên số lượng bàn này không?", 
                 "Xác nhận dư chỗ ngồi", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
             
-            // Nếu Lễ tân chọn "No" -> Dừng lại để họ bỏ tick bớt bàn
             if (confirm != JOptionPane.YES_OPTION) {
                 return; 
             }
@@ -395,6 +382,10 @@ public class SoDoBan_Normal_Panel extends JPanel {
                 donMoi.setTenKhachHang(diag.getHoTen()); 
                 donMoi.setSoDienThoai(diag.getSdt());
                 
+                // --- ĐÃ THÊM maNV TẠI ĐÂY ---
+                donMoi.setMaNV(this.maNV); 
+                // -----------------------------
+                
                 List<String> dsMaBanChon = listBanDatNhieu.stream().map(Ban::getMaBan).collect(Collectors.toList());
 
                 if (donDatBanDAO.insertDonDat(donMoi, dsMaBanChon)) {
@@ -412,6 +403,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Lỗi lưu dữ liệu Đặt nhóm!"); }
         }
     }
+    
     private JButton createSpecialButton(String text) {
         JButton btn = new JButton(text);
         btn.setBackground(BTN_YELLOW); 
@@ -457,10 +449,6 @@ public class SoDoBan_Normal_Panel extends JPanel {
     }
 
     public void loadData(String query) {
-        // ==============================================================
-        // BƯỚC 1: LƯU LẠI VỊ TRÍ CỦA THANH CUỘN (SCROLLBAR) HIỆN TẠI
-        // Đã sử dụng biến toàn cục để không bao giờ bị mất vị trí
-        // ==============================================================
         int currentScrollValue = 0;
         if (scrollPaneDanhSach != null) {
             currentScrollValue = scrollPaneDanhSach.getVerticalScrollBar().getValue();
@@ -574,14 +562,8 @@ public class SoDoBan_Normal_Panel extends JPanel {
         pnlDanhSachBan.revalidate(); 
         pnlDanhSachBan.repaint();
 
-        // ==============================================================
-        // BƯỚC 2: MẸO DOUBLE INVOKELATER CỦA SWING
-        // Chờ giao diện mới vẽ xong hoàn toàn rồi mới kéo thanh cuộn lại
-        // ==============================================================
-     // THAY BẰNG đoạn này:
         if (scrollPaneDanhSach != null) {
             final int finalScrollValue = currentScrollValue;
-            // Dùng Timer 80ms để chờ Swing hoàn tất layout hoàn toàn rồi mới set lại scroll
             Timer restoreScroll = new Timer(80, e -> {
                 scrollPaneDanhSach.getVerticalScrollBar().setValue(finalScrollValue);
             });
@@ -719,9 +701,6 @@ public class SoDoBan_Normal_Panel extends JPanel {
         
         JButton btnChuyenTrong = createActionBtn("Về Trống");
         btnChuyenTrong.addActionListener(evt -> {
-            // =========================================================================
-            // RÀO CHẮN 1: KIỂM TRA ĐƠN ĐẶT BÀN (CỦA LỄ TÂN)
-            // =========================================================================
             dsDonDatHienTai = donDatBanDAO.getAllDonDat();
             boolean dangCoDonDat = dsDonDatHienTai.stream()
                 .anyMatch(d -> isBanInDon(d.getMaBan(), ban.getMaBan()) && (d.getTrangThai().equalsIgnoreCase("Checked-in") || d.getTrangThai().equalsIgnoreCase("Đang dùng")));
@@ -733,13 +712,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
                 return; 
             }
 
-            // =========================================================================
-            // RÀO CHẮN 2: KIỂM TRA ĐƠN GỌI MÓN/HÓA ĐƠN (CỦA PHỤC VỤ/THU NGÂN)
-            // =========================================================================
-            // Nếu bàn nằm trong khối, phải lấy mã bàn chính để kiểm tra hóa đơn tổng
             String maBanCheck = (ban.getMaBanChinh() != null && !ban.getMaBanChinh().isEmpty()) ? ban.getMaBanChinh() : ban.getMaBan();
-            
-            // Yêu cầu class này phải khởi tạo biến donDatMonDAO = new DonDatMon_DAO() ở constructor
             boolean dangCoDonMon = donDatMonDAO.kiemTraBanCoDonChuaThanhToan(maBanCheck);
             
             if (dangCoDonMon) {
@@ -748,10 +721,9 @@ public class SoDoBan_Normal_Panel extends JPanel {
                     "👉 Hệ thống từ chối trả bàn về Trống để tránh thất thoát Hóa đơn.\n" +
                     "Vui lòng yêu cầu Thu ngân thanh toán dứt điểm trước khi dọn bàn!", 
                     "Lỗi nghiệp vụ thanh toán", JOptionPane.ERROR_MESSAGE);
-                return; // CHẶN ĐỨNG TẠI ĐÂY, KHÔNG CHO TRẢ BÀN
+                return; 
             }
 
-            // Nếu vượt qua cả 2 rào chắn an toàn -> Tiến hành giải tán khối hoặc đổi trạng thái
             if (JOptionPane.showConfirmDialog(this, "Chuyển bàn về trạng thái Trống?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 if (ban.getMaKhoi() != null) banDAO.giaiTanKhoi(ban.getMaKhoi());
                 else banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống");
@@ -867,7 +839,12 @@ public class SoDoBan_Normal_Panel extends JPanel {
                     }
 
                     DonDatBan donMoi = new DonDatBan(diag.getMaDon(), ban.getMaBan(), ngayMoi, gioMoi, Integer.parseInt(diag.getSoLuong()), diag.getGhiChu(), "Đã đặt");
-                    donMoi.setTenKhachHang(diag.getHoTen()); donMoi.setSoDienThoai(diag.getSdt());
+                    donMoi.setTenKhachHang(diag.getHoTen()); 
+                    donMoi.setSoDienThoai(diag.getSdt());
+                    
+                    // --- ĐÃ THÊM maNV TẠI ĐÂY ---
+                    donMoi.setMaNV(this.maNV); 
+                    // -----------------------------
                     
                     if (donDatBanDAO.insertDonDat(donMoi)) {
                         dsDonDatHienTai.add(donMoi); 

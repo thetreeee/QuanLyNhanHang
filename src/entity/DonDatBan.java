@@ -13,11 +13,16 @@ public class DonDatBan {
     private String trangThai;
     private String tenKhachHang;
     private String soDienThoai;
+    
+    // ĐÃ THÊM: Thuộc tính mã nhân viên
+    private String maNV; 
+
     // Constructor mặc định
     public DonDatBan() {
     }
 
     // Constructor đầy đủ tham số để dùng khi lấy dữ liệu từ Database hoặc tạo mới
+    // (Vẫn giữ nguyên 7 tham số để không làm lỗi code cũ bên giao diện)
     public DonDatBan(String maDon, String maBan, LocalDate ngayDat, LocalTime thoiGian, int soLuongKhach, String ghiChu, String trangThai) {
         this.maDon = maDon;
         this.maBan = maBan;
@@ -88,6 +93,7 @@ public class DonDatBan {
     public void setTrangThai(String trangThai) {
         this.trangThai = trangThai;
     }
+    
     public String getTenKhachHang() {
         return tenKhachHang;
     }
@@ -103,6 +109,19 @@ public class DonDatBan {
     public void setSoDienThoai(String soDienThoai) {
         this.soDienThoai = soDienThoai;
     }
+
+    // ==========================================
+    // ĐÃ THÊM: GETTER & SETTER CHO maNV
+    // ==========================================
+    public String getMaNV() {
+        return maNV;
+    }
+
+    public void setMaNV(String maNV) {
+        this.maNV = maNV;
+    }
+    // ==========================================
+
     // Phương thức bổ trợ để đưa dữ liệu vào Vector hoặc Object[] cho JTable
     public Object[] toRowTable() {
         return new Object[] {
@@ -112,12 +131,13 @@ public class DonDatBan {
             thoiGian, 
             soLuongKhach, 
             ghiChu, 
-            trangThai
+            trangThai,
+            maNV // Có thể bổ sung cột này nếu trên giao diện JTable cần hiển thị
         };
     }
 
     @Override
     public String toString() {
-        return "DonDatBan [maDon=" + maDon + ", maBan=" + maBan + ", trangThai=" + trangThai + "]";
+        return "DonDatBan [maDon=" + maDon + ", maBan=" + maBan + ", trangThai=" + trangThai + ", maNV=" + maNV + "]";
     }
 }

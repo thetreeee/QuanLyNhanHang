@@ -11,10 +11,12 @@ import java.awt.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import entity.DonDatBan;
 
 public class DialogChiTietDonDat extends JDialog {
     private static final long serialVersionUID = 1L;
-    private JTextField txtMaDon, txtNgayDat, txtThoiGian, txtKhachHang;
+    
+    private JTextField txtMaDon, txtNgayDat, txtThoiGian, txtKhachHang, txtMaNV;
     private JComboBox<String> cbTrangThai;
     private JTable tableChiTiet;
     private DefaultTableModel modelChiTiet;
@@ -39,6 +41,16 @@ public class DialogChiTietDonDat extends JDialog {
             new Font("Segoe UI", Font.BOLD, 14), Color.BLACK
         ));
 
+        String maNhanVien = "N/A";
+        DonDatBanDAO tempDao = new DonDatBanDAO();
+        List<DonDatBan> dsDon = tempDao.getAllDonDat();
+        for (DonDatBan d : dsDon) {
+            if (d.getMaDon().equals(maDon)) {
+                maNhanVien = (d.getMaNV() != null && !d.getMaNV().isEmpty()) ? d.getMaNV() : "N/A";
+                break;
+            }
+        }
+
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 15, 10, 15); 
@@ -51,11 +63,17 @@ public class DialogChiTietDonDat extends JDialog {
         txtNgayDat = createStyledTextField(ngayDat);
         txtThoiGian = createStyledTextField(thoiGian);
         
+        txtMaNV = createStyledTextField(maNhanVien);
+        txtMaNV.setEditable(false);
+        txtMaNV.setFocusable(false);
+        txtMaNV.setBackground(new Color(240, 240, 240));
+        
         cbTrangThai = new JComboBox<>(new String[]{"Đã đặt","Đã hủy"});
         cbTrangThai.setSelectedItem(trangThai);
         cbTrangThai.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         cbTrangThai.setPreferredSize(new Dimension(200, 32));
 
+        // --- DÒNG 1 ---
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.05;
         pnlHeader.add(new JLabel("Mã đơn:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.45;
@@ -66,15 +84,22 @@ public class DialogChiTietDonDat extends JDialog {
         gbc.gridx = 3; gbc.gridy = 0; gbc.weightx = 0.45;
         pnlHeader.add(txtNgayDat, gbc);
 
+        // --- DÒNG 2 (ĐÃ HOÁN ĐỔI: NHÂN VIÊN LÊN ĐÂY) ---
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0.05;
-        pnlHeader.add(new JLabel("Khách hàng:"), gbc);
+        pnlHeader.add(new JLabel("Nhân viên tạo:"), gbc);
         gbc.gridx = 1; gbc.gridy = 1; gbc.weightx = 0.45;
-        pnlHeader.add(txtKhachHang, gbc);
+        pnlHeader.add(txtMaNV, gbc);
 
         gbc.gridx = 2; gbc.gridy = 1; gbc.weightx = 0.05;
         pnlHeader.add(new JLabel("Thời gian:"), gbc);
         gbc.gridx = 3; gbc.gridy = 1; gbc.weightx = 0.45;
         pnlHeader.add(txtThoiGian, gbc);
+
+        // --- DÒNG 3 (ĐÃ HOÁN ĐỔI: KHÁCH HÀNG XUỐNG ĐÂY) ---
+        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0.05;
+        pnlHeader.add(new JLabel("Khách hàng:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 2; gbc.weightx = 0.45;
+        pnlHeader.add(txtKhachHang, gbc);
 
         gbc.gridx = 2; gbc.gridy = 2; gbc.weightx = 0.05;
         pnlHeader.add(new JLabel("Trạng thái:"), gbc);
@@ -119,16 +144,12 @@ public class DialogChiTietDonDat extends JDialog {
             tableChiTiet.getColumnModel().getColumn(i).setCellRenderer(centerRender);
         }
 
-        // =========================================================
-        // ĐÃ NÂNG CẤP: GỌI DB ĐỂ LẤY TOÀN BỘ BÀN CỦA ĐƠN NÀY ĐỔ VÀO
-        // =========================================================
         DonDatBanDAO dao = new DonDatBanDAO();
         List<Object[]> danhSachBan = dao.getChiTietBanCuaDon(maDon);
         
         for (Object[] row : danhSachBan) {
             modelChiTiet.addRow(row);
         }
-        // =========================================================
 
         JScrollPane scroll = new JScrollPane(tableChiTiet);
         scroll.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); 
@@ -165,10 +186,8 @@ public class DialogChiTietDonDat extends JDialog {
             DonDatBanDAO donDAO = new DonDatBanDAO();
             BanDAO banDao = new BanDAO();
             
-            // 1. Lưu trạng thái mới của đơn xuống DB
             if (donDAO.updateTrangThaiCuaDon(maDonHienTai, trangThaiMoi)) {
                 
-                // 2. Vòng lặp này sẽ tự động cập nhật đổi màu trạng thái cho TẤT CẢ các bàn có trong bảng
                 for (int i = 0; i < modelChiTiet.getRowCount(); i++) {
                     String banTrongDon = modelChiTiet.getValueAt(i, 0).toString();
                     

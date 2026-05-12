@@ -21,11 +21,14 @@ public class GUIDashBoardNVLT extends JFrame {
     private CardLayout cardLayout;
     private List<JButton> menuButtons = new ArrayList<>();
 
-    // Chuẩn bị sẵn 3 biến Panel cho 3 luồng nghiệp vụ
+    // Chuẩn bị sẵn các biến Panel cho các luồng nghiệp vụ
     private SoDoBan_Normal_Panel pnlSoDoBan_Normal;
     private SoDoBan_Gop_Panel pnlSoDoBan_Gop;
     private SoDoBan_Chuyen_Panel pnlSoDoBan_Chuyen;
     private DanhSachDatBanPanel pnlDanhSachDatBan; 
+    
+    // ĐÃ THÊM: Biến tham chiếu cho Panel Khách Hàng
+    private QuanLyKhachHang_Panel pnlKhachHang;
     
     private String maNV;
 
@@ -33,7 +36,7 @@ public class GUIDashBoardNVLT extends JFrame {
         this.maNV = maNV;
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
 
-        setTitle("Tuấn Trường Restaurant System - Staff");
+        setTitle("Tuấn Trường Restaurant System - Staff (Lễ Tân)");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1350, 850);
         setLocationRelativeTo(null);
@@ -56,7 +59,7 @@ public class GUIDashBoardNVLT extends JFrame {
         menuContainer.add(createBrandPanel());
 
         // =========================================================================
-        // NÂNG CẤP MENU: TẠO MENU XỔ XUỐNG (DROPDOWN) CHO PHẦN SƠ ĐỒ BÀN
+        // MENU XỔ XUỐNG (DROPDOWN) CHO PHẦN SƠ ĐỒ BÀN
         // =========================================================================
         String[][] subMenus = {
             {"  Đặt bàn & Check-in", "SoDoBan_Normal"},
@@ -66,6 +69,9 @@ public class GUIDashBoardNVLT extends JFrame {
         addDropdownMenu(menuContainer, "Quản lý sơ đồ bàn", "icons/seating.png", subMenus);
         
         addMenu(menuContainer, "Danh sách đặt bàn", "icons/list.png", "DanhSachDatBan"); 
+        
+        // ĐÃ THÊM: Menu Khách hàng cho Lễ tân
+        addMenu(menuContainer, "Khách hàng", "icons/customer.png", "KhachHang");
 
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
@@ -75,17 +81,22 @@ public class GUIDashBoardNVLT extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
 
-        // Tạm thời tạo 3 instance giống nhau. 
-        // Sang BƯỚC 2, ta sẽ thêm tham số Mode (ví dụ "GOP", "CHUYEN") vào hàm khởi tạo này
+        // Khởi tạo các instance panel
         pnlSoDoBan_Normal = new SoDoBan_Normal_Panel(this.maNV);
         pnlSoDoBan_Gop = new SoDoBan_Gop_Panel(this.maNV);
         pnlSoDoBan_Chuyen = new SoDoBan_Chuyen_Panel(this.maNV);
         pnlDanhSachDatBan = new DanhSachDatBanPanel(); 
+        
+        // ĐÃ THÊM: Khởi tạo Panel Khách hàng và truyền cứng vai trò "Lễ tân"
+        pnlKhachHang = new QuanLyKhachHang_Panel("Lễ tân");
 
         mainContentPanel.add(pnlSoDoBan_Normal, "SoDoBan_Normal"); 
         mainContentPanel.add(pnlSoDoBan_Gop, "SoDoBan_Gop"); 
         mainContentPanel.add(pnlSoDoBan_Chuyen, "SoDoBan_Chuyen"); 
         mainContentPanel.add(pnlDanhSachDatBan, "DanhSachDatBan"); 
+        
+        // ĐÃ THÊM: Nạp Panel Khách Hàng vào CardLayout
+        mainContentPanel.add(pnlKhachHang, "KhachHang");
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
@@ -95,10 +106,9 @@ public class GUIDashBoardNVLT extends JFrame {
     }
 
     // =========================================================================
-    // HÀM HỖ TRỢ VẼ MENU XỔ XUỐNG CỰC KỲ ĐẸP MẮT
+    // HÀM HỖ TRỢ VẼ MENU XỔ XUỐNG
     // =========================================================================
     private void addDropdownMenu(JPanel container, String title, String iconPath, String[][] subItems) {
-        // Nút Menu Cha (Bấm vào để ẩn/hiện menu con)
         JButton btnParent = new JButton(title);
         btnParent.setIcon(getIconFromFile(iconPath, 20));
         btnParent.setMaximumSize(new Dimension(240, 45));
@@ -114,19 +124,16 @@ public class GUIDashBoardNVLT extends JFrame {
         btnParent.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnParent.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Panel chứa các nút Menu Con
         JPanel pnlSubMenu = new JPanel();
         pnlSubMenu.setLayout(new BoxLayout(pnlSubMenu, BoxLayout.Y_AXIS));
         pnlSubMenu.setOpaque(false);
 
-        // Sự kiện Đóng/Mở menu con
         btnParent.addActionListener(e -> {
             pnlSubMenu.setVisible(!pnlSubMenu.isVisible());
             container.revalidate();
             container.repaint();
         });
 
-        // Đổ các Menu Con vào
         for (String[] item : subItems) {
             String subText = item[0];
             String cardName = item[1];
@@ -138,7 +145,7 @@ public class GUIDashBoardNVLT extends JFrame {
             btnSub.setForeground(TEXT_MUTED);
             btnSub.setBackground(SIDEBAR_BG);
             btnSub.setHorizontalAlignment(SwingConstants.LEFT);
-            btnSub.setMargin(new Insets(0, 50, 0, 0)); // Thụt lề sâu vào trong để phân biệt với cha
+            btnSub.setMargin(new Insets(0, 50, 0, 0)); 
             btnSub.setBorderPainted(false);
             btnSub.setFocusPainted(false);
             btnSub.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -158,13 +165,12 @@ public class GUIDashBoardNVLT extends JFrame {
         container.add(Box.createRigidArea(new Dimension(0, 8)));
     }
 
-    // Hàm tạo Menu thường (Giữ nguyên)
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {
         JButton btn = new JButton(text);
         btn.setIcon(getIconFromFile(iconPath, 20));
         btn.setMaximumSize(new Dimension(240, 45));
         btn.setPreferredSize(new Dimension(240, 45));
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); // Menu cha để Bold
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); 
         btn.setForeground(TEXT_MUTED);
         btn.setBackground(SIDEBAR_BG);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
@@ -180,6 +186,11 @@ public class GUIDashBoardNVLT extends JFrame {
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, cardName);
             setActiveMenu(text);
+            
+            // ĐÃ THÊM: Cập nhật lại dữ liệu Khách Hàng mới nhất từ Database mỗi khi Lễ tân bấm vào Menu này
+            if (cardName.equals("KhachHang")) {
+                pnlKhachHang.loadDataToTable();
+            }
         });
         
         container.add(btn);
@@ -196,7 +207,6 @@ public class GUIDashBoardNVLT extends JFrame {
                 btn.setBackground(SIDEBAR_BG);
                 btn.setForeground(TEXT_MUTED);
                 btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-                // Nếu là nút Menu gốc thì giữ nguyên Bold
                 if (!btn.getText().startsWith("  ")) {
                     btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
                 }

@@ -15,7 +15,7 @@ public class DonDatBanDAO {
     public List<DonDatBan> getAllDonDat() {
         java.util.Map<String, DonDatBan> mapDon = new java.util.LinkedHashMap<>();
         
-        String sql = "SELECT d.maDon, d.ngayDat, d.thoiGian, d.trangThai, c.maBan, c.soLuongKhach, " +
+        String sql = "SELECT d.maDon, d.ngayDat, d.thoiGian, d.trangThai, d.ghiChu, d.maNV, c.maBan, c.soLuongKhach, " +
                      "k.hoTen, k.soDienThoai " +
                      "FROM DonDatBan d " +
                      "JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
@@ -45,12 +45,13 @@ public class DonDatBanDAO {
                         rs.getDate("ngayDat").toLocalDate(),
                         rs.getTimestamp("thoiGian").toLocalDateTime().toLocalTime(),
                         soKhachCuaBan,
-                        "", // Ghi chú mặc định trống
+                        rs.getString("ghiChu") != null ? rs.getString("ghiChu") : "", 
                         rs.getString("trangThai") != null ? rs.getString("trangThai") : "Đã đặt"
                     );
                     
                     donMoi.setTenKhachHang(rs.getString("hoTen") != null ? rs.getString("hoTen") : "Khách vãng lai");
                     donMoi.setSoDienThoai(rs.getString("soDienThoai") != null ? rs.getString("soDienThoai") : "");
+                    donMoi.setMaNV(rs.getString("maNV") != null ? rs.getString("maNV") : ""); 
                     
                     mapDon.put(maDon, donMoi);
                 }
@@ -59,12 +60,11 @@ public class DonDatBanDAO {
             e.printStackTrace();
         }
         
-        // Rút xuất danh sách từ Map ra trả về cho giao diện
         return new ArrayList<>(mapDon.values());
     }
 
     /**
-     * 2. TẠO ĐƠN ĐẶT BÀN MỚI (CHUẨN 1-N CỦA THẦY)
+     * 2. TẠO ĐƠN ĐẶT BÀN MỚI
      * Sử dụng Transaction để lưu vào 3 bảng: KhachHang -> DonDatBan -> ChiTietDatBan
      */
     public boolean insertDonDat(DonDatBan don, List<String> danhSachMaBan) {
@@ -73,30 +73,53 @@ public class DonDatBanDAO {
             con = SQLConnection.getConnection();
             con.setAutoCommit(false); // Bật Transaction
 
-            // --- BƯỚC A: Lưu Khách Hàng ---
-            String maKH = "KH" + (System.currentTimeMillis() % 1000000); 
-            String sqlKH = "INSERT INTO KhachHang (maKhachHang, hoTen, soDienThoai) VALUES (?, ?, ?)";
-            try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
-                psKH.setString(1, maKH);
-                psKH.setString(2, don.getTenKhachHang());
-                psKH.setString(3, don.getSoDienThoai());
-                psKH.executeUpdate();
+            // ==============================================================
+            // BƯỚC A: XỬ LÝ KHÁCH HÀNG THÔNG MINH
+            // ==============================================================
+            String maKH = null;
+            String sdtKhach = don.getSoDienThoai();
+            
+            // 1. Dò tìm xem khách này đã từng ăn ở quán chưa (Dựa vào SĐT)
+            String sqlCheckKH = "SELECT maKhachHang FROM KhachHang WHERE soDienThoai = ?";
+            try (PreparedStatement psCheck = con.prepareStatement(sqlCheckKH)) {
+                psCheck.setString(1, sdtKhach);
+                try (ResultSet rsKH = psCheck.executeQuery()) {
+                    if (rsKH.next()) {
+                        maKH = rsKH.getString("maKhachHang"); // Nếu có thì lấy lại Mã cũ
+                    }
+                }
             }
+            
+            // 2. Nếu SĐT lạ (Khách mới hoàn toàn) -> Tạo mã mới và INSERT vào DB
+            if (maKH == null) {
+                // ĐÃ ĐỒNG BỘ: Sử dụng hàm sinh mã tuần tự từ KhachHang_DAO
+                maKH = new KhachHang_DAO().tuDongPhatSinhMa(); 
+                
+                String sqlKH = "INSERT INTO KhachHang (maKhachHang, hoTen, soDienThoai) VALUES (?, ?, ?)";
+                try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
+                    psKH.setString(1, maKH);
+                    psKH.setString(2, don.getTenKhachHang());
+                    psKH.setString(3, sdtKhach);
+                    psKH.executeUpdate();
+                }
+            }
+            // ==============================================================
 
             // --- BƯỚC B: Lưu DonDatBan (Chỉ tạo DUY NHẤT 1 DÒNG) ---
-            String sqlDon = "INSERT INTO DonDatBan (maDon, ngayDat, thoiGian, maKhachHang, maNV, trangThai) VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlDon = "INSERT INTO DonDatBan (maDon, ngayDat, thoiGian, maKhachHang, maNV, trangThai, ghiChu) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement psDon = con.prepareStatement(sqlDon)) {
                 psDon.setString(1, don.getMaDon());
                 psDon.setDate(2, Date.valueOf(don.getNgayDat()));
                 psDon.setTimestamp(3, Timestamp.valueOf(don.getNgayDat().atTime(don.getThoiGian())));
                 psDon.setString(4, maKH); 
-                psDon.setString(5, null); 
+                psDon.setString(5, don.getMaNV()); 
                 psDon.setString(6, don.getTrangThai() != null ? don.getTrangThai() : "Đã đặt");
+                psDon.setString(7, don.getGhiChu());
+                
                 psDon.executeUpdate();
             }
 
             // --- BƯỚC C: Lưu ChiTietDatBan (Lưu NHIỀU BÀN cùng lúc bằng AddBatch) ---
-            // Chia trung bình số lượng khách ra các bàn để lưu
             int khachMoiBan = don.getSoLuongKhach() / danhSachMaBan.size();
             int khachLe = don.getSoLuongKhach() % danhSachMaBan.size();
             
@@ -105,14 +128,13 @@ public class DonDatBanDAO {
                 for (int i = 0; i < danhSachMaBan.size(); i++) {
                     psCT.setString(1, don.getMaDon());
                     psCT.setString(2, danhSachMaBan.get(i));
-                    // Bàn đầu tiên sẽ gánh số khách lẻ (nếu có chia không hết)
+                    // Bàn đầu tiên sẽ gánh số khách lẻ
                     psCT.setInt(3, i == 0 ? (khachMoiBan + khachLe) : khachMoiBan); 
                     psCT.addBatch(); 
                 }
                 psCT.executeBatch(); 
             }
 
-            // Nếu mọi thứ trơn tru -> Commit xuống CSDL
             con.commit(); 
             return true;
 
@@ -129,7 +151,6 @@ public class DonDatBanDAO {
         return false;
     }
 
-    // Hàm ghi đè (Overload) để tương thích với các form cũ chỉ chọn 1 bàn
     public boolean insertDonDat(DonDatBan don) {
         List<String> danhSachMaBan = new ArrayList<>();
         danhSachMaBan.add(don.getMaBan());

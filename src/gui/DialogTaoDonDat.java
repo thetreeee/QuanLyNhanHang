@@ -1,8 +1,10 @@
 package gui;
 
 import dao.DonDatBanDAO;
+import dao.KhachHang_DAO; // ĐÃ THÊM IMPORT
 import entity.Ban;
-import entity.DonDatBan;
+import entity.KhachHang; // ĐÃ THÊM IMPORT
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -50,7 +52,39 @@ public class DialogTaoDonDat extends JDialog {
         txtMaBan.setFocusable(false);
 
         // =============================================================
-        // 3. Số điện thoại (ĐÃ ĐƯA LÊN TRÊN & CHUẨN BỊ TÍNH NĂNG TỰ ĐIỀN TÊN)
+        // 4. Họ tên khách hàng (Khởi tạo trước để SĐT có thể tham chiếu tới)
+        // =============================================================
+        txtHoTen = createStyledTextField("");
+        lblErrorHoTen = new JLabel("* Phải nhập đủ họ tên");
+        lblErrorHoTen.setForeground(Color.RED);
+        lblErrorHoTen.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblErrorHoTen.setVisible(false);
+
+        JPanel pnlHoTenWrapper = new JPanel(new BorderLayout(0, 2));
+        pnlHoTenWrapper.setOpaque(false);
+        pnlHoTenWrapper.add(txtHoTen, BorderLayout.CENTER);
+        pnlHoTenWrapper.add(lblErrorHoTen, BorderLayout.SOUTH);
+
+        txtHoTen.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (txtHoTen.isEditable()) {
+                    validateHoTen(); 
+                }
+            }
+
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (txtHoTen.isEditable()) {
+                    txtHoTen.putClientProperty("JComponent.outline", null);
+                    txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
+                    lblErrorHoTen.setVisible(false);
+                }
+            }
+        });
+
+        // =============================================================
+        // 3. Số điện thoại (TRA CỨU VÀ TỰ ĐỘNG ĐIỀN TÊN)
         // =============================================================
         txtSdt = createStyledTextField("");
         lblErrorSdt = new JLabel("* SĐT phải bắt đầu bằng 0 và có 10 số");
@@ -68,18 +102,31 @@ public class DialogTaoDonDat extends JDialog {
             public void focusLost(FocusEvent e) {
                 validateSDT(); 
                 
-                // MỒI SẴN CODE: TỰ ĐỘNG TRA CỨU KHÁCH HÀNG
+                // NẾU SĐT HỢP LỆ -> GỌI DAO ĐỂ TÌM KHÁCH HÀNG
                 if (isValidSDT(txtSdt.getText().trim())) {
-                    /* TODO: Sau này bạn làm tới phần Khách Hàng thì mở comment đoạn này ra
-                    KhachHangDAO khDao = new KhachHangDAO();
-                    KhachHang kh = khDao.timKhachHangTheoSDT(txtSdt.getText().trim());
+                    KhachHang_DAO khDao = new KhachHang_DAO();
+                    KhachHang kh = khDao.getKhachHangBySDT(txtSdt.getText().trim());
+                    
                     if (kh != null) {
-                        txtHoTen.setText(kh.getHoTen()); // Tự động điền tên
-                        txtHoTen.putClientProperty("JComponent.outline", null); // Xóa lỗi viền đỏ nếu có
+                        // KHÁCH CŨ: Điền tên và khóa ô nhập liệu
+                        txtHoTen.setText(kh.getHoTen()); 
+                        txtHoTen.setEditable(false);
+                        txtHoTen.setBackground(new Color(240, 240, 240)); 
+                        
+                        txtHoTen.putClientProperty("JComponent.outline", null); 
                         txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
                         lblErrorHoTen.setVisible(false);
+                    } else {
+                        // KHÁCH MỚI: Xóa tên cũ (nếu có), mở khóa ô nhập liệu
+                        txtHoTen.setText("");
+                        txtHoTen.setEditable(true);
+                        txtHoTen.setBackground(Color.WHITE);
                     }
-                    */
+                } else {
+                    // SĐT Xóa trắng hoặc sai định dạng thì mở khóa lại ô Họ Tên
+                    txtHoTen.setText("");
+                    txtHoTen.setEditable(true);
+                    txtHoTen.setBackground(Color.WHITE);
                 }
             }
 
@@ -88,34 +135,6 @@ public class DialogTaoDonDat extends JDialog {
                 txtSdt.putClientProperty("JComponent.outline", null);
                 txtSdt.setBorder(UIManager.getBorder("TextField.border"));
                 lblErrorSdt.setVisible(false);
-            }
-        });
-
-        // =============================================================
-        // 4. Họ tên khách hàng (ĐƯA XUỐNG DƯỚI)
-        // =============================================================
-        txtHoTen = createStyledTextField("");
-        lblErrorHoTen = new JLabel("* Phải nhập đủ họ tên");
-        lblErrorHoTen.setForeground(Color.RED);
-        lblErrorHoTen.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblErrorHoTen.setVisible(false);
-
-        JPanel pnlHoTenWrapper = new JPanel(new BorderLayout(0, 2));
-        pnlHoTenWrapper.setOpaque(false);
-        pnlHoTenWrapper.add(txtHoTen, BorderLayout.CENTER);
-        pnlHoTenWrapper.add(lblErrorHoTen, BorderLayout.SOUTH);
-
-        txtHoTen.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                validateHoTen(); 
-            }
-
-            @Override
-            public void focusGained(FocusEvent e) {
-                txtHoTen.putClientProperty("JComponent.outline", null);
-                txtHoTen.setBorder(UIManager.getBorder("TextField.border"));
-                lblErrorHoTen.setVisible(false);
             }
         });
 
@@ -152,10 +171,12 @@ public class DialogTaoDonDat extends JDialog {
             txtSoLuong.setBackground(new Color(240, 240, 240));
         }
         
-        // 8. Ghi chú
+        // ==============================================================
+        // 8. Ghi chú 
+        // ==============================================================
         txtGhiChu = createStyledTextField("");
 
-        // ĐÃ SỬA: Add vào panel theo đúng thứ tự (SĐT trước, Họ tên sau)
+        // Add vào panel theo đúng thứ tự
         pnlContent.add(new JLabel("Mã đơn:"));        pnlContent.add(txtMaDon);
         pnlContent.add(new JLabel("Mã bàn:"));        pnlContent.add(txtMaBan);
         pnlContent.add(new JLabel("Số điện thoại:"));  pnlContent.add(pnlSdtWrapper); 
@@ -183,7 +204,7 @@ public class DialogTaoDonDat extends JDialog {
             boolean isHoTenValid = validateHoTen();
             
             if(!isHoTenValid || txtSdt.getText().trim().isEmpty()) {
-                validateSDT(); // Chủ động gọi để nháy đỏ SĐT nếu rỗng
+                validateSDT(); 
                 JOptionPane.showMessageDialog(this, "Vui lòng nhập Số điện thoại và Họ tên hợp lệ (không chứa số)!");
                 if (txtSdt.getText().trim().isEmpty()) txtSdt.requestFocus();
                 else txtHoTen.requestFocus();
@@ -203,9 +224,7 @@ public class DialogTaoDonDat extends JDialog {
                 LocalDate ngay = LocalDate.parse(txtNgay.getText().trim(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                 LocalTime gio = LocalTime.parse(txtThoiGian.getText().trim(), DateTimeFormatter.ofPattern("HH:mm"));
                 
-                // ==========================================================
                 // 4. VALIDATE: KIỂM TRA THỜI GIAN TRONG QUÁ KHỨ NGAY TẠI FORM
-                // ==========================================================
                 LocalDateTime thoiGianChon = LocalDateTime.of(ngay, gio);
                 if (thoiGianChon.isBefore(LocalDateTime.now())) {
                     JOptionPane.showMessageDialog(this, 
@@ -299,6 +318,7 @@ public class DialogTaoDonDat extends JDialog {
         }
     }
 
+    // --- CÁC HÀM GETTER ĐỂ LẤY DỮ LIỆU TỪ FORM ---
     public boolean isThanhCong() { return isThanhCong; }
     public String getMaDon() { return txtMaDon.getText().trim(); }
     public String getMaBan() { return txtMaBan.getText().trim(); }

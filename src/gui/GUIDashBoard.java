@@ -23,7 +23,10 @@ public class GUIDashBoard extends JFrame {
     // Lưu tham chiếu các Panel để gọi hàm load dữ liệu Real-time
     private ThucDonPanel pnlThucDon;
     private QuanLyGiaBanPanel pnlGiaBan;
-    private SoDoBanPanel pnlSoDoBan; // Thêm tham chiếu cho Sơ đồ bàn
+    private SoDoBanPanel pnlSoDoBan; 
+    
+    // ĐÃ THÊM: Biến tham chiếu cho Panel Khách Hàng
+    private QuanLyKhachHang_Panel pnlKhachHang; 
 
     public GUIDashBoard() {
         try { UIManager.setLookAndFeel(new FlatLightLaf()); } catch (Exception e) {}
@@ -50,8 +53,9 @@ public class GUIDashBoard extends JFrame {
         
         menuContainer.add(createBrandPanel());
 
-        // Thêm Menu và định danh CardName (Lưu ý: "SoDoBan" phải khớp ở cả 2 nơi)
+        // ĐÃ SỬA: Thêm Menu Khách hàng vào Sidebar (Bạn nhớ chuẩn bị 1 icon tên customer.png nhé)
         addMenu(menuContainer, "Nhân viên", "icons/staff.png", "NhanVien");
+        addMenu(menuContainer, "Khách hàng", "icons/customer.png", "KhachHang"); 
         addMenu(menuContainer, "Thực đơn", "icons/menu (1).png", "ThucDon"); 
         addMenu(menuContainer, "Bảng giá", "icons/list.png", "BangGia");
         addMenu(menuContainer, "Sơ đồ bàn", "icons/seating.png", "SoDoBan");
@@ -69,15 +73,22 @@ public class GUIDashBoard extends JFrame {
         // Khởi tạo các Panel
         pnlThucDon = new ThucDonPanel();
         pnlGiaBan = new QuanLyGiaBanPanel();
-        pnlSoDoBan = new SoDoBanPanel(); // Khởi tạo Sơ đồ bàn
+        pnlSoDoBan = new SoDoBanPanel(); 
+        
+        // ĐÃ THÊM: Khởi tạo Panel Khách hàng và truyền đúng vai trò "Quản lý"
+        pnlKhachHang = new QuanLyKhachHang_Panel("Quản lý");
 
         // Thêm vào CardLayout với định danh CardName khớp với nút Menu
         mainContentPanel.add(new NhanVienPanel(), "NhanVien");
+        
+        // ĐÃ THÊM: Nạp Panel Khách Hàng vào CardLayout
+        mainContentPanel.add(pnlKhachHang, "KhachHang"); 
+        
         mainContentPanel.add(new ThongKePanel(), "ThongKe");   
         mainContentPanel.add(pnlThucDon, "ThucDon"); 
         mainContentPanel.add(new KhuyenMaiPanel(), "KhuyenMai");
         mainContentPanel.add(pnlGiaBan, "BangGia");
-        mainContentPanel.add(pnlSoDoBan, "SoDoBan"); // Đã sửa từ "Ban" thành "SoDoBan"
+        mainContentPanel.add(pnlSoDoBan, "SoDoBan"); 
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
         
@@ -114,9 +125,8 @@ public class GUIDashBoard extends JFrame {
                 pnlThucDon.loadDataFromDatabase(); 
             } else if (cardName.equals("BangGia")) {
                 pnlGiaBan.loadDataToTable();
-//            } else if (cardName.equals("SoDoBan")) {
-//                pnlSoDoBan.loadData(""); // Làm mới sơ đồ bàn khi vừa nhấn vào
             }
+            // Mẹo nhỏ: Bạn có thể thêm lệnh pnlKhachHang.loadData() vào đây nếu muốn nó refresh mỗi lần click
         });
         
         container.add(btn);

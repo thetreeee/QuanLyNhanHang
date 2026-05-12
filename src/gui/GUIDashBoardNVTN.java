@@ -24,6 +24,9 @@ public class GUIDashBoardNVTN extends JFrame {
     private ThanhToanPanel pnlThanhToan;
     private QuanLyHoaDonPanel pnlHoaDon;
     
+    // ĐÃ THÊM: Biến tham chiếu cho Panel Khách Hàng
+    private QuanLyKhachHang_Panel pnlKhachHang; 
+    
     private String maNhanVien; 
 
     public GUIDashBoardNVTN(String maNV) {
@@ -58,6 +61,9 @@ public class GUIDashBoardNVTN extends JFrame {
         addMenu(menuContainer, "Thanh toán", "icons/bill.png", "ThanhToan");
         addMenu(menuContainer, "Quản lý hóa đơn", "icons/bill (1).png", "HoaDon");
         
+        // ĐÃ THÊM: Menu Khách Hàng cho Thu Ngân
+        addMenu(menuContainer, "Khách hàng", "icons/customer.png", "KhachHang");
+        
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
 
@@ -69,9 +75,15 @@ public class GUIDashBoardNVTN extends JFrame {
         // Khởi tạo các panel con và truyền mã nhân viên xuống
         pnlThanhToan = new ThanhToanPanel(this.maNhanVien);
         pnlHoaDon = new QuanLyHoaDonPanel();
+        
+        // ĐÃ THÊM: Khởi tạo Panel Khách hàng và truyền cứng vai trò "Thu ngân"
+        pnlKhachHang = new QuanLyKhachHang_Panel("Thu ngân");
 
         mainContentPanel.add(pnlThanhToan, "ThanhToan"); 
         mainContentPanel.add(pnlHoaDon, "HoaDon");
+        
+        // ĐÃ THÊM: Nạp Panel Khách Hàng vào CardLayout
+        mainContentPanel.add(pnlKhachHang, "KhachHang");
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
 
@@ -101,6 +113,11 @@ public class GUIDashBoardNVTN extends JFrame {
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, cardName);
             setActiveMenu(text);
+            
+            // ĐÃ THÊM: Cập nhật dữ liệu Khách Hàng mới nhất từ Database mỗi khi Thu ngân bấm vào Menu
+            if (cardName.equals("KhachHang")) {
+                pnlKhachHang.loadDataToTable();
+            }
         });
         
         container.add(btn);
