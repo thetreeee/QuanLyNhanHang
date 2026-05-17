@@ -81,7 +81,7 @@ public class KhachHang_DAO {
     // 4. THÊM KHÁCH HÀNG MỚI (Dùng cho form Thêm Khách Hàng)
     // ==============================================================
     public boolean insertKhachHang(KhachHang kh) {
-        // Lưu ý: Cột tongChiTieu, diemHienTai, hangThanhVien trong SQL đã được set DEFAULT
+        // Lưu ý: Cột tongChiTieu, hangThanhVien trong SQL đã được set DEFAULT
         // nên chúng ta chỉ cần INSERT 3 thông tin cơ bản là đủ.
         String sql = "INSERT INTO KhachHang (maKhachHang, hoTen, soDienThoai) VALUES (?, ?, ?)";
         try (Connection con = SQLConnection.getConnection(); 
@@ -113,7 +113,7 @@ public class KhachHang_DAO {
         return false;
     }
 
- // ==============================================================
+    // ==============================================================
     // 6. TỰ ĐỘNG PHÁT SINH MÃ KHÁCH HÀNG TIẾP THEO (KH001, KH002...)
     // ==============================================================
     public String tuDongPhatSinhMa() {

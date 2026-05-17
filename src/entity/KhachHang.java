@@ -4,8 +4,7 @@ public class KhachHang {
     private String maKH;
     private String hoTen;
     private String soDienThoai;
-    private double tongChiTieu; // Gốc để tính điểm và hạng
-    private int diemHienTai;
+    private double tongChiTieu;
     private String hangThanhVien;
 
     public KhachHang() {}
@@ -15,26 +14,36 @@ public class KhachHang {
         this.hoTen = hoTen;
         this.soDienThoai = soDienThoai;
         this.tongChiTieu = tongChiTieu;
-        tinhToanHangVaDiem();
+        tinhToanHang();
     }
 
-    // Logic tự động: 1 triệu = 2 điểm
-    public void tinhToanHangVaDiem() {
-        this.diemHienTai = (int) (this.tongChiTieu / 500000); // 1.000.000 / 500.000 = 2 điểm
-        if (this.diemHienTai <= 10) this.hangThanhVien = "Bạc";
-        else if (this.diemHienTai <= 20) this.hangThanhVien = "Vàng";
-        else this.hangThanhVien = "Kim Cương";
+    // Logic tự động tính hạng theo Tổng chi tiêu
+    public void tinhToanHang() {
+        if (this.tongChiTieu >= 20000000) {
+            this.hangThanhVien = "Kim Cương";
+        } else if (this.tongChiTieu >= 10000000) {
+            this.hangThanhVien = "Vàng";
+        } else {
+            this.hangThanhVien = "Bạc";
+        }
     }
 
-    // Getter và Setter...
+    // Getter và Setter
     public String getMaKH() { return maKH; }
     public void setMaKH(String maKH) { this.maKH = maKH; }
+    
     public String getHoTen() { return hoTen; }
     public void setHoTen(String hoTen) { this.hoTen = hoTen; }
+    
     public String getSoDienThoai() { return soDienThoai; }
     public void setSoDienThoai(String soDienThoai) { this.soDienThoai = soDienThoai; }
+    
     public double getTongChiTieu() { return tongChiTieu; }
-    public void setTongChiTieu(double tongChiTieu) { this.tongChiTieu = tongChiTieu; tinhToanHangVaDiem(); }
-    public int getDiemHienTai() { return diemHienTai; }
+    public void setTongChiTieu(double tongChiTieu) { 
+        this.tongChiTieu = tongChiTieu; 
+        tinhToanHang(); 
+    }
+    
     public String getHangThanhVien() { return hangThanhVien; }
+    public void setHangThanhVien(String hangThanhVien) { this.hangThanhVien = hangThanhVien; }
 }

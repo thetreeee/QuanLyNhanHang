@@ -336,4 +336,27 @@ public class DonDatBanDAO {
         }
         return null;
     }
+
+    /**
+     * 11. TÌM KHÁCH HÀNG ĐANG CHECK-IN TẠI BÀN (Dành riêng cho chức năng Gọi Món)
+     * Chạy khi nhân viên lưu đơn món mới, tự động phát hiện xem bàn này có thuộc đơn đặt trước nào đang được dùng không.
+     */
+    public String getKhachHangDangCheckIn(String maBan) {
+        String sql = "SELECT TOP 1 d.maKhachHang " +
+                     "FROM DonDatBan d " +
+                     "JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
+                     "WHERE c.maBan = ? AND d.trangThai = N'Checked-in'";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("maKhachHang");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null; // Nếu trả về null tức là bàn trống hoặc khách vãng lai
+    }
 }

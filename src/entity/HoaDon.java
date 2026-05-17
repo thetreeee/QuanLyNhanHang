@@ -10,10 +10,14 @@ public class HoaDon {
     private Ban ban;
     private String phuongThucTT;
     private double tongTien; // Map với cột tongThanhTien trong SQL
+    
+    // ĐÃ THÊM: Thuộc tính Khách Hàng
+    private KhachHang khachHang; 
 
     public HoaDon() {}
 
-    public HoaDon(String maHD, LocalDateTime ngayLap, KhuyenMai khuyenMai, NhanVien nhanVien, Ban ban, String phuongThucTT, double tongTien) {
+    // ĐÃ THÊM: KhachHang vào constructor
+    public HoaDon(String maHD, LocalDateTime ngayLap, KhuyenMai khuyenMai, NhanVien nhanVien, Ban ban, String phuongThucTT, double tongTien, KhachHang khachHang) {
         this.maHD = maHD;
         this.ngayLap = ngayLap;
         this.khuyenMai = khuyenMai;
@@ -21,20 +25,31 @@ public class HoaDon {
         this.ban = ban;
         this.phuongThucTT = phuongThucTT;
         this.tongTien = tongTien;
+        this.khachHang = khachHang;
     }
 
     public String getMaHD() { return maHD; }
     public void setMaHD(String maHD) { this.maHD = maHD; }
+    
     public LocalDateTime getNgayLap() { return ngayLap; }
     public void setNgayLap(LocalDateTime ngayLap) { this.ngayLap = ngayLap; }
+    
     public KhuyenMai getKhuyenMai() { return khuyenMai; }
     public void setKhuyenMai(KhuyenMai khuyenMai) { this.khuyenMai = khuyenMai; }
+    
     public NhanVien getNhanVien() { return nhanVien; }
     public void setNhanVien(NhanVien nhanVien) { this.nhanVien = nhanVien; }
+    
     public Ban getBan() { return ban; }
     public void setBan(Ban ban) { this.ban = ban; }
+    
     public String getPhuongThucTT() { return phuongThucTT; }
     public void setPhuongThucTT(String phuongThucTT) { this.phuongThucTT = phuongThucTT; }
+    
     public double getTongTien() { return tongTien; }
     public void setTongTien(double tongTien) { this.tongTien = tongTien; }
+
+    // ĐÃ THÊM: Getter và Setter cho Khách Hàng
+    public KhachHang getKhachHang() { return khachHang; }
+    public void setKhachHang(KhachHang khachHang) { this.khachHang = khachHang; }
 }

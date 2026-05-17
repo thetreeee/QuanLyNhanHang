@@ -13,20 +13,21 @@ import connectDB.SQLConnection;
 
 public class XuatHoaDonHelper {
 
+    // ĐÃ THÊM THAM SỐ: String tenKhachHang
     public static void xuatHoaDon(String maHD, String ngayLap, String maNV, String maBan,
                                   DefaultTableModel modelChiTiet,
-                                  String tongTienHang, String khuyenMai, String thueVAT, String tongThanhToan, String phuongThuc, boolean isPrint) {
+                                  String tongTienHang, String khuyenMai, String thueVAT, String tongThanhToan, 
+                                  String phuongThuc, String tenKhachHang, boolean isPrint) {
         
         // =====================================================================
-        // ĐÃ NÂNG CẤP: Truy vấn Database để tự động dịch maNV thành Tên Nhân Viên
+        // Truy vấn Database để tự động dịch maNV thành Tên Nhân Viên
         // =====================================================================
-        String tenNhanVien = maNV; // Mặc định nếu lỗi DB thì vẫn in mã (VD: NV009)
+        String tenNhanVien = maNV; // Mặc định nếu lỗi DB thì vẫn in mã
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("SELECT * FROM NhanVien WHERE maNV = ?")) {
             ps.setString(1, maNV);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    // Dùng try-catch lồng nhau phòng hờ bạn đặt tên cột trong SQL khác nhau
                     try { tenNhanVien = rs.getString("tenNV"); } 
                     catch (Exception e1) {
                         try { tenNhanVien = rs.getString("tenNhanVien"); } 
@@ -95,13 +96,18 @@ public class XuatHoaDonHelper {
             html.append("<div class='info-col'>");
             html.append("<span><strong>Mã Hóa Đơn: </strong> ").append(maHD).append("</span><br>");
             html.append("<span><strong>Ngày Lập: </strong> ").append(ngayLap).append("</span><br>");
-            // GHI TÊN NHÂN VIÊN VÀO HTML
             html.append("<span><strong>Nhân Viên: </strong> ").append(tenNhanVien).append("</span>");
             html.append("</div>");
 
             html.append("<div class='info-col'>");
             html.append("<span><strong>Bàn: </strong> ").append(maBan).append("</span><br>");
             html.append("<span><strong>Phương Thức TT: </strong> ").append(phuongThuc).append("</span>");
+            
+            // --- XỬ LÝ KHÁCH HÀNG Ở ĐÂY ---
+            if (tenKhachHang != null && !tenKhachHang.trim().isEmpty() && !tenKhachHang.equalsIgnoreCase("Khách vãng lai")) {
+                html.append("<br><span><strong>Khách Hàng: </strong> ").append(tenKhachHang).append("</span>");
+            }
+            
             html.append("</div>");
 
             html.append("</div>"); 

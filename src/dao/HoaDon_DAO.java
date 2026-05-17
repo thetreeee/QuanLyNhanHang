@@ -5,6 +5,7 @@ import entity.HoaDon;
 import entity.NhanVien;
 import entity.Ban;
 import entity.KhuyenMai;
+import entity.KhachHang; // ĐÃ THÊM IMPORT
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,7 +15,8 @@ public class HoaDon_DAO {
 
 	public List<HoaDon> getAll() {
 		List<HoaDon> ds = new ArrayList<>();
-		String sql = "SELECT maHD, ngayLap, maKM, maNV, maBan, phuongThucTT, tongThanhTien FROM HoaDon ORDER BY ngayLap DESC";
+		// ĐÃ THÊM: Gọi thêm cột maKhachHang từ SQL
+		String sql = "SELECT maHD, ngayLap, maKM, maNV, maBan, phuongThucTT, tongThanhTien, maKhachHang FROM HoaDon ORDER BY ngayLap DESC";
 		try (Connection con = SQLConnection.getConnection();
 				Statement st = con.createStatement();
 				ResultSet rs = st.executeQuery(sql)) {
@@ -28,7 +30,6 @@ public class HoaDon_DAO {
 				hd.setPhuongThucTT(rs.getString("phuongThucTT"));
 				hd.setTongTien(rs.getDouble("tongThanhTien"));
 
-				// --- SỬA Ở ĐÂY ĐỂ TRÁNH LỖI CONSTRUCTOR ---
 				NhanVien nv = new NhanVien();
 				nv.setMaNV(rs.getString("maNV"));
 				hd.setNhanVien(nv);
@@ -42,7 +43,13 @@ public class HoaDon_DAO {
 					km.setMaKM(rs.getString("maKM"));
 					hd.setKhuyenMai(km);
 				}
-				// -------------------------------------------
+
+				// ĐÃ THÊM: Lấy mã khách hàng gán vào đối tượng HoaDon
+				if (rs.getString("maKhachHang") != null && !rs.getString("maKhachHang").isEmpty()) {
+					KhachHang kh = new KhachHang();
+					kh.setMaKH(rs.getString("maKhachHang"));
+					hd.setKhachHang(kh);
+				}
 
 				ds.add(hd);
 			}
@@ -84,7 +91,8 @@ public class HoaDon_DAO {
 	}
 
 	public boolean themHoaDon(HoaDon hd) {
-		String sql = "INSERT INTO HoaDon (maHD, ngayLap, maKM, maNV, maBan, phuongThucTT, tongThanhTien) VALUES (?, ?, ?, ?, ?, ?, ?)";
+		// ĐÃ THÊM: Bổ sung maKhachHang vào lệnh INSERT (tham số thứ 8)
+		String sql = "INSERT INTO HoaDon (maHD, ngayLap, maKM, maNV, maBan, phuongThucTT, tongThanhTien, maKhachHang) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 		try (Connection con = SQLConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
 
 			ps.setString(1, hd.getMaHD());
@@ -94,6 +102,13 @@ public class HoaDon_DAO {
 			ps.setString(5, hd.getBan().getMaBan());
 			ps.setString(6, hd.getPhuongThucTT());
 			ps.setDouble(7, hd.getTongTien());
+
+			// ĐÃ THÊM: Gắn mã khách hàng nếu có, không thì truyền NULL cho DB
+			if (hd.getKhachHang() != null && hd.getKhachHang().getMaKH() != null) {
+				ps.setString(8, hd.getKhachHang().getMaKH());
+			} else {
+				ps.setNull(8, java.sql.Types.VARCHAR);
+			}
 
 			return ps.executeUpdate() > 0;
 		} catch (SQLException e) {

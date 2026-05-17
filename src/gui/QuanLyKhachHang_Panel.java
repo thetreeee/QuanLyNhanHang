@@ -76,7 +76,6 @@ public class QuanLyKhachHang_Panel extends JPanel {
         btnAdd = createStyledButton("+ Thêm Khách Hàng", BTN_ADD_YELLOW, Color.BLACK);
         btnAdd.setPreferredSize(new Dimension(180, 42)); 
         
-        // ĐÃ NÂNG CẤP: Dùng Frame chung thay vì ép kiểu GUIDashBoard để tránh lỗi ClassCastException
         btnAdd.addActionListener(e -> {
             Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
             new ThemKhachHangDialog(owner, this).setVisible(true);
@@ -115,8 +114,8 @@ public class QuanLyKhachHang_Panel extends JPanel {
         searchPanel.add(txtSearch);
         centerPanel.add(searchPanel, BorderLayout.NORTH);
 
-        // BẢNG DỮ LIỆU
-        String[] columnNames = {"Mã KH", "Họ Tên", "Số Điện Thoại", "Tổng Chi Tiêu (VNĐ)", "Điểm Tích Lũy", "Hạng"};
+        // BẢNG DỮ LIỆU ĐÃ XÓA CỘT ĐIỂM TÍCH LŨY
+        String[] columnNames = {"Mã KH", "Họ Tên", "Số Điện Thoại", "Tổng Chi Tiêu (VNĐ)", "Hạng"};
         model = new DefaultTableModel(null, columnNames) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -141,13 +140,10 @@ public class QuanLyKhachHang_Panel extends JPanel {
                 if (e.getClickCount() == 2 && col != 0) {
                     String maKH = model.getValueAt(row, 0).toString();
                     
-                    // ĐÃ NÂNG CẤP: Dùng Frame chung để không bị văng lỗi khi chạy trên Lễ Tân
                     Frame owner = (Frame) SwingUtilities.getWindowAncestor(QuanLyKhachHang_Panel.this);
                     
                     // TODO: Mở comment dòng này khi bạn thiết kế xong SuaKhachHangDialog
-                     new SuaKhachHangDialog(owner, QuanLyKhachHang_Panel.this, maKH).setVisible(true);
-                    
-//                    JOptionPane.showMessageDialog(QuanLyKhachHang_Panel.this, "Mở form Cập Nhật Khách " + maKH);
+                    // new SuaKhachHangDialog(owner, QuanLyKhachHang_Panel.this, maKH).setVisible(true);
                 }
             }
         });
@@ -163,11 +159,11 @@ public class QuanLyKhachHang_Panel extends JPanel {
 
     private void thietLapPhanQuyen() {
         if (vaiTro.equalsIgnoreCase("Lễ tân")) {
+            // Lễ tân không được xem Tổng chi tiêu (cột 3)
             table.getColumnModel().getColumn(3).setMinWidth(0);
             table.getColumnModel().getColumn(3).setMaxWidth(0);
-            table.getColumnModel().getColumn(4).setMinWidth(0);
-            table.getColumnModel().getColumn(4).setMaxWidth(0);
         } else if (vaiTro.equalsIgnoreCase("Thu ngân")) {
+            // Thu ngân không được Thêm khách hàng mới
             btnAdd.setVisible(false);
         }
     }
@@ -180,7 +176,7 @@ public class QuanLyKhachHang_Panel extends JPanel {
             if (kh.getHoTen().toLowerCase().contains(keyword) || kh.getSoDienThoai().contains(keyword)) {
                 model.addRow(new Object[]{
                     kh.getMaKH(), kh.getHoTen(), kh.getSoDienThoai(),
-                    df.format(kh.getTongChiTieu()), kh.getDiemHienTai(), kh.getHangThanhVien()
+                    df.format(kh.getTongChiTieu()), kh.getHangThanhVien()
                 });
             }
         }
@@ -192,7 +188,7 @@ public class QuanLyKhachHang_Panel extends JPanel {
         for (KhachHang kh : ds) {
             model.addRow(new Object[]{
                 kh.getMaKH(), kh.getHoTen(), kh.getSoDienThoai(),
-                df.format(kh.getTongChiTieu()), kh.getDiemHienTai(), kh.getHangThanhVien()
+                df.format(kh.getTongChiTieu()), kh.getHangThanhVien()
             });
         }
     }

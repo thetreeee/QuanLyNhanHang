@@ -573,7 +573,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
         int width = (ban.getSoGhe() <= 4) ? 165 : (ban.getSoGhe() <= 8) ? 260 : 360;
         Color tempBg = COLOR_TRONG; 
         String tt = ban.getTrangThai().toLowerCase();
-        if (tt.contains("dùng") || tt.contains("sử dụng")) tempBg = COLOR_DUNG;
+        if (tt.contains("dùng") || tt.contains("sử dụng") || tt.contains("checked-in")) tempBg = COLOR_DUNG;
         else if (tt.contains("đặt")) tempBg = COLOR_DAT;
         final Color bg = tempBg; 
         
@@ -711,8 +711,8 @@ public class SoDoBan_Normal_Panel extends JPanel {
 
             String maBanCheck = (ban.getMaBanChinh() != null && !ban.getMaBanChinh().isEmpty()) ? ban.getMaBanChinh() : ban.getMaBan();
             
-            // ĐÃ SỬA: Thay vì kiểm tra có Đơn không, ta kiểm tra xem Đơn đó ĐÃ CÓ MÓN ĂN CHƯA
-            boolean dangCoMonAn = donDatMonDAO.kiemTraDonCoMonAnChua(maBanCheck);
+            // GIỮ LẠI CHECK CÓ MÓN CHƯA THANH TOÁN (LỚP BẢO VỆ CHẮC CHẮN NHẤT)
+            boolean dangCoMonAn = donDatMonDAO.kiemTraBanCoDonChuaThanhToan(maBanCheck);
             
             if (dangCoMonAn) {
                 JOptionPane.showMessageDialog(this, 
@@ -723,12 +723,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
                 return; 
             }
 
-            // Nếu đến được đây nghĩa là Bàn trống không, hoặc có Đơn nhưng chưa gọi món nào!
             if (JOptionPane.showConfirmDialog(this, "Chuyển bàn về trạng thái Trống?", "Xác nhận", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-                
-                // Âm thầm xóa bỏ cái Đơn rỗng đi cho sạch CSDL
-                donDatMonDAO.xoaDonRongCuaBan(maBanCheck);
-                
                 // Trả bàn về xanh
                 if (ban.getMaKhoi() != null) banDAO.giaiTanKhoi(ban.getMaKhoi());
                 else banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống");
@@ -773,8 +768,8 @@ public class SoDoBan_Normal_Panel extends JPanel {
             }
         });
 
-     // ==============================================================
-        // SỰ KIỆN NÚT "MỞ BÀN" (CHỈ DÀNH CHO KHÁCH VÃNG LAI)
+        // ==============================================================
+        // SỰ KIỆN NÚT "MỞ BÀN" - ĐÃ LOẠI BỎ VIỆC TẠO ĐƠN (LAZY CREATION)
         // ==============================================================
         btnMoBan.addActionListener(evt -> {
             LocalDateTime now = LocalDateTime.now();
@@ -791,7 +786,6 @@ public class SoDoBan_Normal_Panel extends JPanel {
                     long phutConLai = Duration.between(now, thoiGianDat).toMinutes();
                     DateTimeFormatter fTime = DateTimeFormatter.ofPattern("HH:mm");
 
-                    // ĐÃ SỬA: Đổi từ 120 xuống 90 (Khóa bàn trước 1.5 tiếng. Ví dụ: Đặt 17h -> 15h30 mới bị khóa)
                     if (phutConLai >= 0 && phutConLai <= 90) {
                         isBlocked = true;
                         msgText = "TỪ CHỐI MỞ BÀN: Bàn này đã được khách đặt trước vào lúc " + don.getThoiGian().format(fTime) + "!\n\n"
@@ -816,18 +810,14 @@ public class SoDoBan_Normal_Panel extends JPanel {
                 if (JOptionPane.showConfirmDialog(this, msgText, "Khách đến trễ", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION) {
                     if (!maDonBiTre.isEmpty()) donDatBanDAO.updateTrangThaiCuaDon(maDonBiTre, "Đã hủy"); 
                     if (banDAO.updateTrangThaiBan(ban.getMaBan(), "Đang dùng")) {
-                        // ĐÃ SỬA: Truyền 'null' để ép buộc đây là đơn của Khách Vãng Lai, không dò tìm mã KH
-                        donDatMonDAO.createDon(ban.getMaBan(), this.maNV, "Khách vãng lai (Hủy đơn khách trễ)", null);
                         loadData(txtSearch.getText());
                     }
                 }
             } 
             else {
-                // Mở bàn lẻ bình thường (Kể cả bàn đang vàng nhưng còn cách quá 90 phút)
+                // Mở bàn lẻ bình thường 
                 if (JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn mở bàn " + ban.getTenBan() + " cho khách vãng lai?", "Xác nhận mở bàn", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     if (banDAO.updateTrangThaiBan(ban.getMaBan(), "Đang dùng")) {
-                        // ĐÃ SỬA: Truyền 'null' để ép buộc đây là đơn của Khách Vãng Lai
-                        donDatMonDAO.createDon(ban.getMaBan(), this.maNV, "Khách vãng lai", null);
                         loadData(txtSearch.getText());
                     }
                 }

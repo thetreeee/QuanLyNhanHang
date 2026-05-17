@@ -50,7 +50,6 @@ public class DonDatMon_DAO {
     
     public String phatSinhMaDon() {
         int max = 0;
-        // Lưu ý: Nếu Đơn món của bạn dùng tiền tố D thì đổi chữ M thành D nhé
         String sql = "SELECT maDonDat FROM DonDatMon WHERE maDonDat LIKE 'M%'"; 
         try (Connection con = SQLConnection.getConnection();
              Statement st = con.createStatement();
@@ -69,7 +68,8 @@ public class DonDatMon_DAO {
     }
     
     // ==============================================================
-    // HÀM TẠO ĐƠN GỌI MÓN (CÓ XỬ LÝ MÃ KHÁCH HÀNG / VÃNG LAI)
+    // HÀM TẠO ĐƠN GỌI MÓN (LAZY CREATION)
+    // Sẽ được gọi khi Khách bắt đầu ấn Lưu đơn/Gọi món ở Tab Gọi Món
     // ==============================================================
     public String createDon(String maBan, String maNV, String ghiChu, String maKhachHang) {
         String maDon = phatSinhMaDon();
@@ -82,7 +82,7 @@ public class DonDatMon_DAO {
             ps.setString(4, maNV);
             ps.setString(5, maBan);
             
-            // Xử lý Khách vãng lai (không truyền mã)
+            // Xử lý Khách vãng lai (nếu rỗng)
             if (maKhachHang == null || maKhachHang.trim().isEmpty()) {
                 ps.setNull(6, java.sql.Types.VARCHAR);
             } else {
@@ -94,11 +94,6 @@ public class DonDatMon_DAO {
         return maDon;
     }
     
-    // Nạp chồng phương thức cho tiện dùng khi chắc chắn là Khách vãng lai
-    public String createDon(String maBan, String maNV, String ghiChu) {
-        return createDon(maBan, maNV, ghiChu, null);
-    }
-
     // ==============================================================
     // CÁC HÀM CẬP NHẬT / XÓA / KIỂM TRA
     // ==============================================================
@@ -211,33 +206,5 @@ public class DonDatMon_DAO {
             return n > 0; 
         } catch (Exception e) { e.printStackTrace(); }
         return false;
-    }
-
-    // ==============================================================
-    // XỬ LÝ TRƯỜNG HỢP KHÁCH VÀO NGỒI NHƯNG ĐI VỀ KHÔNG GỌI MÓN
-    // ==============================================================
-    public boolean kiemTraDonCoMonAnChua(String maBan) {
-        // Kết hợp với bảng ChiTietDatMon để xem bàn này đã order món nào chưa
-        String sql = "SELECT COUNT(*) FROM ChiTietDatMon c JOIN DonDatMon d ON c.maDonDat = d.maDonDat WHERE d.maBan = ?"; 
-        try (Connection con = SQLConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, maBan);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0; // Trả về true nếu đã có ít nhất 1 món
-                }
-            }
-        } catch (Exception e) { e.printStackTrace(); }
-        return false;
-    }
-
-    public void xoaDonRongCuaBan(String maBan) {
-        // Lệnh này cực kỳ an toàn: CHỈ XÓA những Đơn chưa có chi tiết món ăn (rỗng)
-        String sql = "DELETE FROM DonDatMon WHERE maBan = ? AND maDonDat NOT IN (SELECT maDonDat FROM ChiTietDatMon)";
-        try (Connection con = SQLConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, maBan);
-            ps.executeUpdate();
-        } catch (Exception e) { e.printStackTrace(); }
     }
 }

@@ -1,6 +1,7 @@
 package gui;
 
 import dao.ChiTietDatMon_DAO;
+import dao.DonDatBanDAO;
 import dao.DonDatMon_DAO;
 import dao.MonAn_DAO;
 import entity.*;
@@ -143,10 +144,11 @@ public class GoiMonPanel extends JPanel {
         // ===== RIGHT PANEL =====
         JPanel pnlRight = new JPanel(new BorderLayout());
         
-        // --- ĐÃ NÂNG CẤP: Lấy đúng mã đơn dự kiến và rút ngắn text chống khuất chữ ---
+        // ĐÃ SỬA: LUÔN LUÔN PHÁT SINH MÃ MỚI CHO PHIẾU BẾP LẦN NÀY (Không check đơn cũ nữa)
         String maDonDuKien = new DonDatMon_DAO().phatSinhMaDon();
-        JLabel lblOrderHeader = new JLabel(" Mã đơn: " + maDonDuKien + "  |  Bàn: " + ban.getMaBan());
-        lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 14)); // Giảm size 1 tí cho vừa khung
+        
+        JLabel lblOrderHeader = new JLabel(" Mã phiếu: " + maDonDuKien + "  |  Bàn: " + ban.getMaBan());
+        lblOrderHeader.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblOrderHeader.setHorizontalAlignment(SwingConstants.CENTER);
         lblOrderHeader.setOpaque(true);
         lblOrderHeader.setBackground(new Color(244, 182, 169)); 
@@ -317,7 +319,6 @@ public class GoiMonPanel extends JPanel {
         JLabel lblSL = new JLabel(String.valueOf(item.getSoLuong()), SwingConstants.CENTER);
         lblSL.setPreferredSize(new Dimension(30, 30));
 
-
         btnPlus.setBackground(new Color(40,167,69));
         btnPlus.setForeground(Color.WHITE);
 
@@ -329,15 +330,13 @@ public class GoiMonPanel extends JPanel {
             refresh();
         });
 
-        // --- ĐÃ SỬA LỖI NÚT TRỪ Ở ĐÂY ---
         btnMinus.addActionListener(e -> {
-            // Kiểm tra: Nếu số lượng đang là 1 thì xóa luôn khỏi giỏ hàng
             if (item.getSoLuong() <= 1) {
                 dsOrder.remove(item);
             } else {
-                item.giamSL(); // Ngược lại thì cứ giảm bình thường
+                item.giamSL(); 
             }
-            refresh(); // Cập nhật lại giao diện
+            refresh(); 
         });
 
         btnDelete.addActionListener(e -> {
@@ -372,12 +371,15 @@ public class GoiMonPanel extends JPanel {
         return nf.format(price) + " đ";
     }
 
-    // ===== SAVE =====
+    // ==============================================================
+    // LƯU DB: LUÔN TẠO PHIẾU BẾP MỚI ĐỂ BẾP THEO DÕI THỜI GIAN
+    // ==============================================================
     private void saveToDB() {
         String ghiChu = txtGhiChu.getText().trim();
 
         DonDatMon_DAO donDAO = new DonDatMon_DAO();
         ChiTietDatMon_DAO ctDAO = new ChiTietDatMon_DAO();
+        DonDatBanDAO datBanDAO = new DonDatBanDAO(); 
         
         if (this.nv == null || this.nv.getMaNV() == null) {
             JOptionPane.showMessageDialog(this, "Lỗi mất Session! Không tìm thấy mã nhân viên.");
@@ -385,13 +387,19 @@ public class GoiMonPanel extends JPanel {
         }
 
         String maNV = this.nv.getMaNV();
-        String maDon = donDAO.createDon(ban.getMaBan(), maNV ,ghiChu);
 
+        // 1. Quét xem bàn này có khách VIP nào đang "Checked-in" không?
+        String maKhachCheckIn = datBanDAO.getKhachHangDangCheckIn(ban.getMaBan());
+
+        // 2. LUÔN LUÔN tạo một phiếu gọi món mới (Đơn mới) để Bếp biết timeline
+        String maDon = donDAO.createDon(ban.getMaBan(), maNV, ghiChu, maKhachCheckIn);
+
+        // 3. Chèn các món ăn vào chi tiết của phiếu này
         for (DonGoiMon d : dsOrder) {
             ctDAO.insertChiTiet(maDon, d);
         }
 
-        JOptionPane.showMessageDialog(this, "Đã tách phiếu mới gửi xuống bếp!");
+        JOptionPane.showMessageDialog(this, "Đã đẩy Phiếu Mới (" + maDon + ") xuống bếp thành công!");
 
         Window w = SwingUtilities.getWindowAncestor(this);
         if (w != null) w.dispose();

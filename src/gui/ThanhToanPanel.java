@@ -21,6 +21,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
@@ -50,6 +51,8 @@ public class ThanhToanPanel extends JPanel {
 	private JButton btnActiveBan = null;
 
 	private JLabel lblMaDonInfo, lblMaBanInfo, lblMaNVInfo, lblThoiGianInfo, lblGhiChuInfo;
+	private JLabel lblKhachHangInfo, lblHangInfo; 
+	
 	private JTable tblChiTiet;
 	private DefaultTableModel modelChiTiet;
 
@@ -62,6 +65,8 @@ public class ThanhToanPanel extends JPanel {
 	private String maNV;
 	private double tongTienHienTai = 0, khachCanTraHienTra = 0;
 	private DecimalFormat df = new DecimalFormat("#,### đ");
+
+	private String maKhachHangHienTai = null;
 
 	private BanDAO banDAO = new BanDAO();
 	private DonDatMon_DAO donDatMonDAO = new DonDatMon_DAO();
@@ -241,15 +246,26 @@ public class ThanhToanPanel extends JPanel {
 		lblTitleLeft.setFont(new Font("Segoe UI", Font.BOLD, 17));
 		pInfoCard.add(lblTitleLeft, BorderLayout.NORTH);
 
-		JPanel pI = new JPanel(new GridLayout(3, 2, 10, 15)); 
+		JPanel pI = new JPanel(new GridLayout(4, 2, 10, 15)); 
 		pI.setOpaque(false);
 		pI.setBorder(new EmptyBorder(15, 0, 0, 0));
 		
+		// Dòng 1
 		pI.add(lblMaDonInfo = createNormalLabel("Mã đơn: --")); 
 		pI.add(lblMaBanInfo = createNormalLabel("Mã bàn: --"));
-		pI.add(lblMaNVInfo = createNormalLabel("Mã nhân viên: --")); 
+		
+		// Dòng 2
 		pI.add(lblThoiGianInfo = createNormalLabel("Thời gian: --"));
+		pI.add(lblKhachHangInfo = createNormalLabel("Khách hàng: --"));
+		
+		// Dòng 3
+		pI.add(lblMaNVInfo = createNormalLabel("Mã nhân viên: --")); 
+		pI.add(lblHangInfo = createNormalLabel("Hạng KH: --"));
+		
+		
+		// Dòng 4
 		pI.add(lblGhiChuInfo = createNormalLabel("Ghi chú: --")); 
+		pI.add(new JLabel("")); 
 		
 		pInfoCard.add(pI, BorderLayout.CENTER);
 		pL.add(pInfoCard, BorderLayout.NORTH);
@@ -282,8 +298,6 @@ public class ThanhToanPanel extends JPanel {
 
 		JScrollPane scrollTbl = new JScrollPane(tblChiTiet);
 		scrollTbl.getViewport().setBackground(Color.WHITE);
-		
-		// ĐÃ SỬA: Xóa sạch ranh giới, đường viền của JScrollPane để bảng liền mạch với tiêu đề
 		scrollTbl.setBorder(BorderFactory.createEmptyBorder());
 		scrollTbl.setViewportBorder(BorderFactory.createEmptyBorder());
 		
@@ -347,7 +361,6 @@ public class ThanhToanPanel extends JPanel {
 		pInv.add(Box.createRigidArea(new Dimension(0, 10)));
 		pInv.add(pnlQRCenter);
 
-		// ĐÃ SỬA: Lột sạch viền của thanh cuộn Hóa Đơn bên phải để biến mất khung màu xám
 		JScrollPane scrollInv = new JScrollPane(pInv);
 		scrollInv.setBorder(BorderFactory.createEmptyBorder());
 		scrollInv.setViewportBorder(BorderFactory.createEmptyBorder());
@@ -427,6 +440,40 @@ public class ThanhToanPanel extends JPanel {
 		btnXacNhan.addActionListener(e -> handleXacNhan());
 	}
 
+	private void capNhatThongTinKhachHang(String maKH, double tienThanhToan) {
+		try (Connection con = SQLConnection.getConnection()) {
+			double tongChiTieuCu = 0;
+			String sqlSelect = "SELECT tongChiTieu FROM KhachHang WHERE maKhachHang = ?";
+			try (PreparedStatement ps = con.prepareStatement(sqlSelect)) {
+				ps.setString(1, maKH);
+				try (ResultSet rs = ps.executeQuery()) {
+					if (rs.next()) {
+						tongChiTieuCu = rs.getDouble("tongChiTieu");
+					}
+				}
+			}
+
+			double tongChiTieuMoi = tongChiTieuCu + tienThanhToan;
+
+			String hangMoi = "Bạc";
+			if (tongChiTieuMoi >= 20000000) {
+                hangMoi = "Kim Cương";
+            } else if (tongChiTieuMoi >= 10000000) {
+                hangMoi = "Vàng";
+            }
+
+			String sqlUpdate = "UPDATE KhachHang SET tongChiTieu = ?, hangThanhVien = ? WHERE maKhachHang = ?";
+			try (PreparedStatement ps = con.prepareStatement(sqlUpdate)) {
+				ps.setDouble(1, tongChiTieuMoi);
+				ps.setString(2, hangMoi);
+				ps.setString(3, maKH);
+				ps.executeUpdate();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	private void handleXacNhan() {
 		if (btnActiveBan == null) return;
 		if (JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
@@ -439,6 +486,13 @@ public class ThanhToanPanel extends JPanel {
 		entity.Ban b = new entity.Ban(); b.setMaBan(maB); hd.setBan(b);
 		if (cbKhuyenMai.getSelectedIndex() > 0) hd.setKhuyenMai(listKhuyenMaiHienTai.get(cbKhuyenMai.getSelectedIndex() - 1));
 
+		// ĐÃ FIX: Gắn thông tin đối tượng Khách hàng vào Hóa Đơn trước khi Insert
+		if (maKhachHangHienTai != null && !maKhachHangHienTai.trim().isEmpty()) {
+			entity.KhachHang kh = new entity.KhachHang();
+			kh.setMaKH(maKhachHangHienTai);
+			hd.setKhachHang(kh);
+		}
+
 		try {
 			if (hoaDonDAO.themHoaDon(hd)) {
 				for (int i = 0; i < modelChiTiet.getRowCount(); i++) {
@@ -448,8 +502,13 @@ public class ThanhToanPanel extends JPanel {
 					ctHoaDonDAO.themChiTietHienTai(maH, mM, sl, tt);
 				}
 				clearDonTamCuaBan(maB);
+
+				if (maKhachHangHienTai != null && !maKhachHangHienTai.trim().isEmpty()) {
+					capNhatThongTinKhachHang(maKhachHangHienTai, khachCanTraHienTra);
+				}
                 
-				XuatHoaDonHelper.xuatHoaDon(maH, hd.getNgayLap().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), this.maNV, maB, modelChiTiet, lblTongTien.getText(), lblGiamGia.getText(), lblVAT.getText(), lblKhachCanTra.getText(), hd.getPhuongThucTT(), chkInHoaDon.isSelected());
+				String tenKH = lblKhachHangInfo.getText().replace("Khách hàng: ", "").trim();
+				XuatHoaDonHelper.xuatHoaDon(maH, hd.getNgayLap().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), this.maNV, maB, modelChiTiet, lblTongTien.getText(), lblGiamGia.getText(), lblVAT.getText(), lblKhachCanTra.getText(), hd.getPhuongThucTT(), tenKH, chkInHoaDon.isSelected());
 				
 				JOptionPane.showMessageDialog(this, "Thanh toán thành công " + maH);
 				loadDuLieuBanTuDB(); cardLayoutDetail.show(pnlDetailContainer, "EMPTY");
@@ -543,9 +602,12 @@ public class ThanhToanPanel extends JPanel {
         
         List<String> listMaDon = new ArrayList<>();
         String thoiGianHienThi = "N/A";
+        String maKhachHangThuTap = null;
         
+		maKhachHangHienTai = null;
+
         try (Connection con = SQLConnection.getConnection()) {
-            ResultSet rs = con.prepareStatement("SELECT maDonDat, thoiGianDat FROM DonDatMon WHERE maBan = '" + maBan + "' ORDER BY thoiGianDat ASC").executeQuery();
+            ResultSet rs = con.prepareStatement("SELECT maDonDat, thoiGianDat, maKhachHang FROM DonDatMon WHERE maBan = '" + maBan + "' ORDER BY thoiGianDat ASC").executeQuery();
             
             while (rs.next()) {
                 String mD = rs.getString("maDonDat");
@@ -555,6 +617,10 @@ public class ThanhToanPanel extends JPanel {
                     java.sql.Timestamp ts = rs.getTimestamp("thoiGianDat");
                     if (ts != null) thoiGianHienThi = ts.toLocalDateTime().format(DateTimeFormatter.ofPattern("HH:mm"));
                 }
+
+				if (maKhachHangThuTap == null && rs.getString("maKhachHang") != null) {
+					maKhachHangThuTap = rs.getString("maKhachHang");
+				}
                 
                 for (ChiTietDatMon ct : chiTietDatMonDAO.getByMaDon(mD)) {
                     String mM = ct.getMaMon();
@@ -571,6 +637,27 @@ public class ThanhToanPanel extends JPanel {
                 modelChiTiet.addRow(new Object[]{m, ct.getMonAn().getTenMon(), sl, df.format(ct.getDonGia()), df.format(tt)});
                 tongTienHienTai += tt;
             }
+
+			maKhachHangHienTai = maKhachHangThuTap;
+
+			if (maKhachHangThuTap != null && !maKhachHangThuTap.trim().isEmpty()) {
+				String sqlKH = "SELECT hoTen, hangThanhVien FROM KhachHang WHERE maKhachHang = ?";
+				try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
+					psKH.setString(1, maKhachHangThuTap);
+					try (ResultSet rsKH = psKH.executeQuery()) {
+						if (rsKH.next()) {
+							String tenKH = rsKH.getString("hoTen");
+							String hangKH = rsKH.getString("hangThanhVien") != null ? rsKH.getString("hangThanhVien") : "Bạc";
+
+							lblKhachHangInfo.setText("Khách hàng: " + tenKH);
+							lblHangInfo.setText("Hạng KH: " + hangKH);
+						}
+					}
+				}
+			} else {
+				lblKhachHangInfo.setText("Khách hàng: Khách vãng lai");
+				lblHangInfo.setText("");
+			}
             
             String strDon = listMaDon.size() > 1 ? listMaDon.get(0) + " (+" + (listMaDon.size() - 1) + " phiếu)" : listMaDon.get(0);
             lblMaDonInfo.setText("Mã đơn: " + strDon);

@@ -2,7 +2,6 @@ package gui;
 
 import dao.BanDAO;
 import dao.DonDatBanDAO;
-import dao.DonDatMon_DAO;
 import entity.Ban;
 import entity.DonDatBan;
 
@@ -28,7 +27,6 @@ public class DialogCheckIn extends JDialog {
 
     private DonDatBanDAO donDAO = new DonDatBanDAO();
     private BanDAO banDAO = new BanDAO();
-    private DonDatMon_DAO donDatMonDAO = new DonDatMon_DAO(); 
     
     private String maNV; 
 
@@ -133,7 +131,7 @@ public class DialogCheckIn extends JDialog {
     }
 
     // =========================================================================
-    // XỬ LÝ CHECK-IN VÀ TRUYỀN MÃ KHÁCH HÀNG
+    // XỬ LÝ CHECK-IN (THUẦN TÚY: CHỈ ĐỔI TRẠNG THÁI, KHÔNG TẠO ĐƠN MÓN)
     // =========================================================================
     private void xuLyCheckIn() {
         int row = table.getSelectedRow();
@@ -180,19 +178,13 @@ public class DialogCheckIn extends JDialog {
                 "Xác nhận Check-in Khối", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                // 1. TÌM MÃ KHÁCH HÀNG TỪ ĐƠN ĐẶT (KH001, KH002...)
-                String maKH = donDAO.getMaKhachHangByMaDon(maDon);
-                
-                // 2. TẠO ĐƠN MÓN (CÓ ĐỦ 4 THAM SỐ ĐỂ NHÉT maKH VÀO DB)
-                donDatMonDAO.createDon(maBanChinh, this.maNV, "Khách đặt trước nhóm bàn " + chuoiMaBan, maKH);
-
-                // 3. CẬP NHẬT TRẠNG THÁI
+                // CẬP NHẬT TRẠNG THÁI
                 boolean successDon = donDAO.updateTrangThaiCuaDon(maDon, "Checked-in");
                 boolean successBan = banDAO.taoKhoiBan(listMaBanGop, maBanChinh);
 
                 if (successDon && successBan) {
                     for(String b : listMaBanGop) banDAO.updateTrangThaiBan(b, "Đang dùng");
-                    JOptionPane.showMessageDialog(this, "Check-in Nhóm thành công! Hóa đơn đã được tạo cho " + tenKhach + ".");
+                    JOptionPane.showMessageDialog(this, "Check-in Nhóm thành công! Các bàn đã được gộp và sẵn sàng gọi món.");
                     isThanhCong = true;
                     dispose();
                 } else {
@@ -206,13 +198,7 @@ public class DialogCheckIn extends JDialog {
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION) {
-                // 1. TÌM MÃ KHÁCH HÀNG TỪ ĐƠN ĐẶT
-                String maKH = donDAO.getMaKhachHangByMaDon(maDon);
-                
-                // 2. TẠO ĐƠN MÓN (NHÉT MÃ KHÁCH HÀNG VÀO)
-                donDatMonDAO.createDon(chuoiMaBan, this.maNV, "Khách đặt trước: " + tenKhach, maKH);
-
-                // 3. CẬP NHẬT TRẠNG THÁI
+                // CẬP NHẬT TRẠNG THÁI
                 boolean updateDon = donDAO.updateTrangThaiCuaDon(maDon, "Checked-in");
                 boolean updateBan = banDAO.updateTrangThaiBan(chuoiMaBan, "Đang dùng");
 
