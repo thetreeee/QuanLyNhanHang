@@ -169,7 +169,7 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
         }
 
         // ==============================================================
-        // ĐÃ THÊM: RÀO CHẮN KIỂM TRA SỨC CHỨA (TRÁNH LÃNG PHÍ HOẶC THIẾU CHỖ)
+        // RÀO CHẮN KIỂM TRA SỨC CHỨA
         // ==============================================================
         int tongGheCu = listBanCu.stream().mapToInt(Ban::getSoGhe).sum();
         int tongGheMoi = listBanMoi.stream().mapToInt(Ban::getSoGhe).sum();
@@ -179,14 +179,14 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
                 "CẢNH BÁO THIẾU CHỖ:\nSức chứa của Bàn Mới (" + tongGheMoi + " ghế) đang NHỎ HƠN Bàn Cũ (" + tongGheCu + " ghế).\n\n" +
                 "Khách có thể không đủ chỗ ngồi. Bạn vẫn chắc chắn muốn chuyển?", 
                 "Cảnh báo sức chứa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (warn != JOptionPane.YES_OPTION) return; // Hủy thao tác nếu Lễ tân đổi ý
+            if (warn != JOptionPane.YES_OPTION) return; 
         } 
-        else if (tongGheMoi > tongGheCu + 4) { // Cho phép chênh lệch dư tối đa 4 ghế, dư 5 ghế trở lên là cảnh báo
+        else if (tongGheMoi > tongGheCu + 4) { 
             int warn = JOptionPane.showConfirmDialog(this, 
                 "CẢNH BÁO LÃNG PHÍ BÀN:\nSức chứa của Bàn Mới (" + tongGheMoi + " ghế) đang DƯ THỪA quá nhiều so với Bàn Cũ (" + tongGheCu + " ghế).\n\n" +
                 "Điều này gây lãng phí không gian nhà hàng. Bạn vẫn chắc chắn muốn chuyển?", 
                 "Cảnh báo sức chứa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-            if (warn != JOptionPane.YES_OPTION) return; // Hủy thao tác nếu Lễ tân đổi ý
+            if (warn != JOptionPane.YES_OPTION) return; 
         }
         // ==============================================================
 
@@ -198,7 +198,7 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
             "Từ: " + sourceStr + "\n" +
             "Đến: " + targetStr + "\n\n" +
             "Bạn có chắc chắn muốn thực hiện thao tác này?", 
-            "Xác nhận chuyển bàn", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+            "Xác nhận Chuyển bàn", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
         
         if (confirm == JOptionPane.YES_OPTION) {
             try {
@@ -209,10 +209,27 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
                 // Xác định Mã Bàn sẽ nhận Hóa Đơn mới
                 String newMaBanChinh = listBanMoi.get(0).getMaBan();
 
-                // 1. Dời Hóa đơn sang Bàn mới
+                // 1. DỜI PHIẾU BẾP (HÓA ĐƠN) SANG BÀN MỚI
                 boolean chuyenBillThanhCong = donDatMonDAO.chuyenBan(oldMaBanChinh, newMaBanChinh);
                 
                 if (chuyenBillThanhCong) {
+                    
+                    // =========================================================================
+                    // ĐÃ FIX LỖI "BÓNG MA": DỜI LUÔN PHIẾU ĐẶT BÀN SANG BÀN MỚI
+                    // =========================================================================
+                    dsDonDatHienTai = donDatBanDAO.getAllDonDat();
+                    for (DonDatBan don : dsDonDatHienTai) {
+                        // Tìm xem bàn cũ có đang dính Đơn đặt bàn nào của ông A (trạng thái Checked-in) không
+                        if (don.getMaBan().contains(oldMaBanChinh) && don.getTrangThai().equalsIgnoreCase("Checked-in")) {
+                            List<String> listMaBanMoiIds = listBanMoi.stream().map(Ban::getMaBan).collect(Collectors.toList());
+                            
+                            // Ép Database nhổ rễ ông A từ bàn cũ, cắm sang nhóm bàn mới
+                            donDatBanDAO.capNhatBanChoDonDat(don.getMaDon(), listMaBanMoiIds, don.getSoLuongKhach());
+                            break; 
+                        }
+                    }
+                    // =========================================================================
+
                     // 2. GIẢI TÁN BÀN CŨ (Đập khối nếu có)
                     Integer oldKhoi = listBanCu.get(0).getMaKhoi();
                     if (oldKhoi != null && oldKhoi > 0) {
@@ -229,7 +246,7 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
                         banDAO.taoKhoiBan(listMaBanMoiIds, newMaBanChinh); // Tự động tạo khối và set Đang Dùng
                     }
 
-                    JOptionPane.showMessageDialog(this, "Chuyển bàn và dời đơn hàng thành công!");
+                    JOptionPane.showMessageDialog(this, "Chuyển bàn và dời toàn bộ đơn hàng thành công!");
                     clearSelection();
                     loadData(txtSearch.getText().trim());
                 } else {

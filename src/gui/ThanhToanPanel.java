@@ -187,11 +187,19 @@ public class ThanhToanPanel extends JPanel {
 		return pnl;
 	}
 
-	private void addTableButton(String maBan, String ghiChu) {
-		JButton btn = new JButton(maBan); 
-		btn.setFont(new Font("Segoe UI", Font.BOLD, 15)); 
-		btn.setPreferredSize(new Dimension(80, 36));
-		btn.putClientProperty("ghiChu", ghiChu); 
+	private void addTableButton(String maBanGoc, String tenBanHienThi, String ghiChuThucTe) {
+		JButton btn = new JButton(tenBanHienThi); 
+		btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); 
+		
+		// ĐÃ SỬA: Lấy chiều rộng dựa theo nội dung chữ vừa khít (chỉ cộng thêm một chút padding)
+		Dimension prefSize = btn.getPreferredSize();
+		// Giảm số +30 xuống +10 (hoặc +5) để chiều ngang ôm sát vào chữ
+		btn.setPreferredSize(new Dimension(prefSize.width + 5, 36)); 
+		// Thêm dòng này để ép lề (margin) bên trong của nút nhỏ lại tối đa
+		btn.setMargin(new Insets(0, 5, 0, 5));
+		
+		btn.putClientProperty("maBanGoc", maBanGoc); 
+		btn.putClientProperty("ghiChu", ghiChuThucTe); 
 		
 		btn.setBackground(new Color(255, 225, 225)); 
 		btn.setForeground(COLOR_RED_ACCENT);
@@ -209,11 +217,13 @@ public class ThanhToanPanel extends JPanel {
 			btn.setForeground(Color.RED); 
 			btnActiveBan = btn;
 			
-			lblMaBanInfo.setText("Mã bàn: " + maBan); 
+			lblMaBanInfo.setText("Mã bàn: " + tenBanHienThi); 
 			lblMaNVInfo.setText("Mã nhân viên: " + maNV); 
-			lblGhiChuInfo.setText("Ghi chú: " + (ghiChu.isEmpty() ? "Không" : ghiChu));
 			
-			loadChiTietTuDB(maBan);
+			// ĐÃ SỬA: Nếu ghi chú rỗng thì để trống, không hiển thị chữ "Không"
+			lblGhiChuInfo.setText("Ghi chú: " + ghiChuThucTe);
+			
+			loadChiTietTuDB(maBanGoc);
 			cbKhuyenMai.setSelectedIndex(0); cbPhuongThuc.setSelectedIndex(0); 
 			cardLayoutDetail.show(pnlDetailContainer, "DETAIL");
 		});
@@ -259,9 +269,8 @@ public class ThanhToanPanel extends JPanel {
 		pI.add(lblKhachHangInfo = createNormalLabel("Khách hàng: --"));
 		
 		// Dòng 3
-		pI.add(lblMaNVInfo = createNormalLabel("Mã nhân viên: --")); 
 		pI.add(lblHangInfo = createNormalLabel("Hạng KH: --"));
-		
+		pI.add(lblMaNVInfo = createNormalLabel("Mã nhân viên: --")); 
 		
 		// Dòng 4
 		pI.add(lblGhiChuInfo = createNormalLabel("Ghi chú: --")); 
@@ -422,7 +431,8 @@ public class ThanhToanPanel extends JPanel {
 				if (c instanceof JButton) {
 					JButton b = (JButton) c;
 					String g = b.getClientProperty("ghiChu") != null ? b.getClientProperty("ghiChu").toString().toLowerCase() : "";
-					b.setVisible(b.getText().toLowerCase().contains(k) || g.contains(k));
+					String textHienThi = b.getText().toLowerCase();
+					b.setVisible(textHienThi.contains(k) || g.contains(k));
 				}
 			}
 		});
@@ -478,15 +488,17 @@ public class ThanhToanPanel extends JPanel {
 		if (btnActiveBan == null) return;
 		if (JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
 
-		String maB = btnActiveBan.getText();
+		String maBanGoc = btnActiveBan.getClientProperty("maBanGoc").toString();
+		String tenBanHienThi = btnActiveBan.getText();
+
 		String maH = phatSinhMaHD();
 		HoaDon hd = new HoaDon(); hd.setMaHD(maH); hd.setNgayLap(LocalDateTime.now());
 		hd.setPhuongThucTT(cbPhuongThuc.getSelectedItem().toString()); hd.setTongTien(khachCanTraHienTra);
 		entity.NhanVien n = new entity.NhanVien(); n.setMaNV(this.maNV); hd.setNhanVien(n);
-		entity.Ban b = new entity.Ban(); b.setMaBan(maB); hd.setBan(b);
+		
+		entity.Ban b = new entity.Ban(); b.setMaBan(maBanGoc); hd.setBan(b); 
 		if (cbKhuyenMai.getSelectedIndex() > 0) hd.setKhuyenMai(listKhuyenMaiHienTai.get(cbKhuyenMai.getSelectedIndex() - 1));
 
-		// ĐÃ FIX: Gắn thông tin đối tượng Khách hàng vào Hóa Đơn trước khi Insert
 		if (maKhachHangHienTai != null && !maKhachHangHienTai.trim().isEmpty()) {
 			entity.KhachHang kh = new entity.KhachHang();
 			kh.setMaKH(maKhachHangHienTai);
@@ -501,14 +513,14 @@ public class ThanhToanPanel extends JPanel {
 					double tt = Double.parseDouble(modelChiTiet.getValueAt(i, 4).toString().replaceAll("[^0-9]", ""));
 					ctHoaDonDAO.themChiTietHienTai(maH, mM, sl, tt);
 				}
-				clearDonTamCuaBan(maB);
+				clearDonTamCuaBan(maBanGoc);
 
 				if (maKhachHangHienTai != null && !maKhachHangHienTai.trim().isEmpty()) {
 					capNhatThongTinKhachHang(maKhachHangHienTai, khachCanTraHienTra);
 				}
                 
 				String tenKH = lblKhachHangInfo.getText().replace("Khách hàng: ", "").trim();
-				XuatHoaDonHelper.xuatHoaDon(maH, hd.getNgayLap().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), this.maNV, maB, modelChiTiet, lblTongTien.getText(), lblGiamGia.getText(), lblVAT.getText(), lblKhachCanTra.getText(), hd.getPhuongThucTT(), tenKH, chkInHoaDon.isSelected());
+				XuatHoaDonHelper.xuatHoaDon(maH, hd.getNgayLap().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")), this.maNV, tenBanHienThi, modelChiTiet, lblTongTien.getText(), lblGiamGia.getText(), lblVAT.getText(), lblKhachCanTra.getText(), hd.getPhuongThucTT(), tenKH, chkInHoaDon.isSelected());
 				
 				JOptionPane.showMessageDialog(this, "Thanh toán thành công " + maH);
 				loadDuLieuBanTuDB(); cardLayoutDetail.show(pnlDetailContainer, "EMPTY");
@@ -576,7 +588,7 @@ public class ThanhToanPanel extends JPanel {
                 DonDatMon d = donDatMonDAO.getDonDangMoTheoBan(b.getMaBan());
                 if (d == null) continue; 
 
-                String ghiChuHienThi = "";
+				String tenBanHienThi = b.getMaBan();
                 if (b.getMaKhoi() != null && b.getMaKhoi() > 0) {
                     List<String> dsPhu = new ArrayList<>();
                     for (Ban phu : allBans) {
@@ -585,11 +597,14 @@ public class ThanhToanPanel extends JPanel {
                         }
                     }
                     if (!dsPhu.isEmpty()) {
-                        ghiChuHienThi = "(Gồm: " + String.join(", ", dsPhu) + ")";
+                        tenBanHienThi += " + " + String.join(" + ", dsPhu);
                     }
                 }
 				
-				addTableButton(b.getMaBan(), ghiChuHienThi);
+				// ĐÃ SỬA: Nếu ghi chú rỗng thì truyền chuỗi rỗng vào, không gán chữ "Không"
+				String ghiChuThucTe = (d.getGhiChu() != null && !d.getGhiChu().isEmpty()) ? d.getGhiChu() : "";
+				
+				addTableButton(b.getMaBan(), tenBanHienThi, ghiChuThucTe);
 			}
 		}
 		pnlGridBan.revalidate(); pnlGridBan.repaint();
