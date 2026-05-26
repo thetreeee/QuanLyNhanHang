@@ -313,6 +313,14 @@ public class ThucDonPanel extends JPanel {
     }
 
     private void xoaMonAn(String id, String name) {
+        java.time.LocalTime now = java.time.LocalTime.now();
+        if (now.isAfter(java.time.LocalTime.of(5, 0)) && now.isBefore(java.time.LocalTime.of(23, 0))) {
+            JOptionPane.showMessageDialog(this, 
+                "Chỉ được phép xóa món ăn ngoài giờ làm (từ 23:00 đêm đến 05:00 sáng).", 
+                "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         int confirm = JOptionPane.showConfirmDialog(this, "Xác nhận xóa món '" + name + "'?", "Xác nhận", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             try {

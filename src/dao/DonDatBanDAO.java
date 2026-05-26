@@ -62,6 +62,57 @@ public class DonDatBanDAO {
     }
 
     /**
+     * 1B. LẤY TẤT CẢ ĐƠN ĐẶT BÀN (BAO GỒM CẢ QUÁ KHỨ) - Dành cho Panel Danh Sách Đặt Bàn có Tìm Kiếm
+     */
+    public List<DonDatBan> getAllDonDatFullHistory() {
+        java.util.Map<String, DonDatBan> mapDon = new java.util.LinkedHashMap<>();
+        
+        String sql = "SELECT d.maDon, d.ngayDat, d.thoiGian, d.trangThai, d.ghiChu, d.maNV, c.maBan, c.soLuongKhach, " +
+                     "k.hoTen, k.soDienThoai " +
+                     "FROM DonDatBan d " +
+                     "JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
+                     "LEFT JOIN KhachHang k ON d.maKhachHang = k.maKhachHang " +
+                     "ORDER BY d.ngayDat DESC, d.thoiGian DESC";
+        
+        try (Connection con = SQLConnection.getConnection();
+             Statement stmt = con.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+             
+            while (rs.next()) {
+                String maDon = rs.getString("maDon");
+                String maBan = rs.getString("maBan");
+                int soKhachCuaBan = rs.getInt("soLuongKhach");
+
+                if (mapDon.containsKey(maDon)) {
+                    DonDatBan donCu = mapDon.get(maDon);
+                    donCu.setMaBan(donCu.getMaBan() + ", " + maBan);
+                    donCu.setSoLuongKhach(donCu.getSoLuongKhach() + soKhachCuaBan);
+                } else {
+                    DonDatBan donMoi = new DonDatBan(
+                        maDon,
+                        maBan, 
+                        rs.getDate("ngayDat").toLocalDate(),
+                        rs.getTimestamp("thoiGian").toLocalDateTime().toLocalTime(),
+                        soKhachCuaBan,
+                        rs.getString("ghiChu") != null ? rs.getString("ghiChu") : "", 
+                        rs.getString("trangThai") != null ? rs.getString("trangThai") : "Đã đặt"
+                    );
+                    
+                    donMoi.setTenKhachHang(rs.getString("hoTen") != null ? rs.getString("hoTen") : "Khách vãng lai");
+                    donMoi.setSoDienThoai(rs.getString("soDienThoai") != null ? rs.getString("soDienThoai") : "");
+                    donMoi.setMaNV(rs.getString("maNV") != null ? rs.getString("maNV") : ""); 
+                    
+                    mapDon.put(maDon, donMoi);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return new ArrayList<>(mapDon.values());
+    }
+
+    /**
      * 2. TẠO ĐƠN ĐẶT BÀN MỚI
      * Sử dụng Transaction để lưu vào 3 bảng: KhachHang -> DonDatBan -> ChiTietDatBan
      */
@@ -358,5 +409,26 @@ public class DonDatBanDAO {
             e.printStackTrace();
         }
         return null; // Nếu trả về null tức là bàn trống hoặc khách vãng lai
+    }
+
+    /**
+     * 12. KIỂM TRA BÀN ĐANG CÓ ĐƠN ĐẶT HOẠT ĐỘNG
+     */
+    public boolean isBanDangCoDonDat(String maBan) {
+        String sql = "SELECT COUNT(*) FROM ChiTietDatBan c " +
+                     "JOIN DonDatBan d ON c.maDon = d.maDon " +
+                     "WHERE c.maBan = ? AND d.trangThai IN (N'Đã đặt', N'Checked-in')";
+        try (Connection con = SQLConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, maBan);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 }

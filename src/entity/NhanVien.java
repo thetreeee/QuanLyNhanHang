@@ -3,22 +3,21 @@ package entity;
 public class NhanVien {
 	private String maNV;
 	private String hoTen;
-	private String soDienThoai; // ĐÃ THÊM: Số điện thoại
+	private java.time.LocalDate ngaySinh; // ĐÃ THÊM: Ngày sinh
+	private String soDienThoai;
 	private String gmail;
 	private String chucVu;
-	private double luong;
 	private String matKhau;
 	private String gioiTinh;
 	private String trangThai;
 
-	// Constructor 7 tham số (Giữ nguyên để không báo lỗi các file cũ)
-	public NhanVien(String maNV, String hoTen, String gmail, String chucVu, double luong, String matKhau,
+	// Constructor (Giữ nguyên để không báo lỗi các file cũ)
+	public NhanVien(String maNV, String hoTen, String gmail, String chucVu, String matKhau,
 			String gioiTinh) {
 		this.maNV = maNV;
 		this.hoTen = hoTen;
 		this.gmail = gmail;
 		this.chucVu = chucVu;
-		this.luong = luong;
 		this.matKhau = matKhau;
 		this.gioiTinh = gioiTinh;
 	}
@@ -39,27 +38,26 @@ public class NhanVien {
 	}
 
 	// Constructor 8 tham số (Giữ nguyên)
-	public NhanVien(String maNV, String hoTen, String gmail, String chucVu, double luong, String matKhau,
+	public NhanVien(String maNV, String hoTen, String gmail, String chucVu, String matKhau,
 			String gioiTinh, String trangThai) {
 		this.maNV = maNV;
 		this.hoTen = hoTen;
 		this.gmail = gmail;
 		this.chucVu = chucVu;
-		this.luong = luong;
 		this.matKhau = matKhau;
 		this.gioiTinh = gioiTinh;
 		this.trangThai = trangThai;
 	}
 
-	// CONSTRUCTOR 9 THAM SỐ (Bản đầy đủ nhất, dùng cho NhanVien_Dao mới)
-	public NhanVien(String maNV, String hoTen, String soDienThoai, String gmail, String chucVu, double luong,
+	// CONSTRUCTOR THAM SỐ (Bản đầy đủ nhất, dùng cho NhanVien_Dao mới)
+	public NhanVien(String maNV, String hoTen, java.time.LocalDate ngaySinh, String soDienThoai, String gmail, String chucVu,
 			String matKhau, String gioiTinh, String trangThai) {
 		this.maNV = maNV;
 		this.hoTen = hoTen;
+		this.ngaySinh = ngaySinh;
 		this.soDienThoai = soDienThoai;
 		this.gmail = gmail;
 		this.chucVu = chucVu;
-		this.luong = luong;
 		this.matKhau = matKhau;
 		this.gioiTinh = gioiTinh;
 		this.trangThai = trangThai;
@@ -74,6 +72,10 @@ public class NhanVien {
 		return hoTen;
 	}
 
+	public java.time.LocalDate getNgaySinh() {
+		return ngaySinh;
+	}
+
 	public String getSoDienThoai() {
 		return soDienThoai;
 	}
@@ -84,10 +86,6 @@ public class NhanVien {
 
 	public String getChucVu() {
 		return chucVu;
-	}
-
-	public double getLuong() {
-		return luong;
 	}
 
 	public String getMatKhau() {
@@ -103,6 +101,10 @@ public class NhanVien {
 	}
 
 	// --- SETTER ---
+	public void setNgaySinh(java.time.LocalDate ngaySinh) {
+		this.ngaySinh = ngaySinh;
+	}
+
 	public void setSoDienThoai(String soDienThoai) {
 		this.soDienThoai = soDienThoai;
 	}
@@ -123,10 +125,6 @@ public class NhanVien {
 		this.chucVu = chucVu;
 	}
 
-	public void setLuong(double luong) {
-		this.luong = luong;
-	}
-
 	public void setMatKhau(String matKhau) {
 		this.matKhau = matKhau;
 	}
@@ -142,8 +140,8 @@ public class NhanVien {
 
 	@Override
 	public String toString() {
-		return "NhanVien [maNV=" + maNV + ", hoTen=" + hoTen + ", soDienThoai=" + soDienThoai + ", gmail=" + gmail
-				+ ", chucVu=" + chucVu + ", luong=" + luong + ", matKhau=" + matKhau + ", gioiTinh=" + gioiTinh
+		return "NhanVien [maNV=" + maNV + ", hoTen=" + hoTen + ", ngaySinh=" + ngaySinh + ", soDienThoai=" + soDienThoai + ", gmail=" + gmail
+				+ ", chucVu=" + chucVu + ", matKhau=" + matKhau + ", gioiTinh=" + gioiTinh
 				+ ", trangThai=" + trangThai + "]";
 	}
 }

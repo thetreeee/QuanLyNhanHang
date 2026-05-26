@@ -189,6 +189,14 @@ public class QuanLyGiaBanPanel extends JPanel {
     }
 
     private void thucHienXoaGiaBan(int row) {
+        java.time.LocalTime now = java.time.LocalTime.now();
+        if (now.isAfter(java.time.LocalTime.of(5, 0)) && now.isBefore(java.time.LocalTime.of(23, 0))) {
+            JOptionPane.showMessageDialog(this, 
+                "Chỉ được phép xóa bảng giá ngoài giờ làm (từ 23:00 đêm đến 05:00 sáng).", 
+                "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         String maBG = model.getValueAt(row, 0).toString();
         String moTa = model.getValueAt(row, 1).toString();
 

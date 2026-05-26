@@ -194,6 +194,14 @@ public class QuanLyKhachHang_Panel extends JPanel {
     }
 
     private void thucHienXoaKhachHang(int row) {
+        java.time.LocalTime now = java.time.LocalTime.now();
+        if (now.isAfter(java.time.LocalTime.of(5, 0)) && now.isBefore(java.time.LocalTime.of(23, 0))) {
+            JOptionPane.showMessageDialog(this, 
+                "Chỉ được phép xóa khách hàng ngoài giờ làm (từ 23:00 đêm đến 05:00 sáng).", 
+                "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         String maKH = model.getValueAt(row, 0).toString();
         String tenKH = model.getValueAt(row, 1).toString();
 

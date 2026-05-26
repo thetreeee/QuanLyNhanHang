@@ -321,6 +321,15 @@ public class SoDoBanPanel extends JPanel {
         lblX.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                // Kiểm tra đơn đặt
+                dao.DonDatBanDAO donDao = new dao.DonDatBanDAO();
+                if (donDao.isBanDangCoDonDat(ban.getMaBan())) {
+                    JOptionPane.showMessageDialog(null, 
+                        "Không thể xóa! Bàn này đang có đơn đặt trong hệ thống.", 
+                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
                 if (JOptionPane.showConfirmDialog(null, "Xóa " + ban.getTenBan() + "?", "Xác nhận", 0) == 0) {
                     if (banDAO.deleteBan(ban.getMaBan())) loadData(txtSearch.getText());
                 }

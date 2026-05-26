@@ -240,18 +240,20 @@ public class NhanVienPanel extends JPanel {
                             Object valTrangThai = model.getValueAt(r, 6);
                             String trangThai = valTrangThai != null ? valTrangThai.toString() : "Đang làm";
                             
-                            // Tìm Gmail từ danh sách gốc an toàn
+                            // Tìm Gmail và ngày sinh từ danh sách gốc an toàn
                             String gmail = "";
+                            java.time.LocalDate ngaySinh = null;
                             if (currentList != null) {
                                 for (NhanVien nvItem : currentList) {
                                     if (nvItem.getMaNV() != null && nvItem.getMaNV().equals(ma)) {
                                         gmail = nvItem.getGmail() != null ? nvItem.getGmail() : "";
+                                        ngaySinh = nvItem.getNgaySinh();
                                         break;
                                     }
                                 }
                             }
 
-                            NhanVien nv = new NhanVien(ma, ten, sdt, gmail, chuc, 5000000.0, mk, gioi, trangThai);
+                            NhanVien nv = new NhanVien(ma, ten, ngaySinh, sdt, gmail, chuc, mk, gioi, trangThai);
                             
                             DialogThemNV d = new DialogThemNV((Frame) SwingUtilities.getWindowAncestor(NhanVienPanel.this), nv, trangThai);
                             d.setVisible(true);

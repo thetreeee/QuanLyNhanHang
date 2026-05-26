@@ -54,13 +54,13 @@ public class GUIDashBoard extends JFrame {
         menuContainer.add(createBrandPanel());
 
         // ĐÃ SỬA: Thêm Menu Khách hàng vào Sidebar (Bạn nhớ chuẩn bị 1 icon tên customer.png nhé)
+        addMenu(menuContainer, "Thống kê", "icons/analysis.png", "ThongKe");
         addMenu(menuContainer, "Nhân viên", "icons/staff.png", "NhanVien");
         addMenu(menuContainer, "Khách hàng", "icons/customer.png", "KhachHang"); 
         addMenu(menuContainer, "Thực đơn", "icons/menu (1).png", "ThucDon"); 
         addMenu(menuContainer, "Bảng giá", "icons/list.png", "BangGia");
         addMenu(menuContainer, "Sơ đồ bàn", "icons/seating.png", "SoDoBan");
         addMenu(menuContainer, "Khuyến mãi", "icons/promotion.png", "KhuyenMai");
-        addMenu(menuContainer, "Thống kê", "icons/analysis.png", "ThongKe");
 
         sidebar.add(menuContainer, BorderLayout.NORTH);
         sidebar.add(createLogoutPanel(), BorderLayout.SOUTH);
@@ -92,9 +92,9 @@ public class GUIDashBoard extends JFrame {
         
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
         
-        // Mặc định hiện Thực đơn
-        cardLayout.show(mainContentPanel, "ThucDon");
-        setActiveMenu("Thực đơn");
+        // Mặc định hiện Thống kê
+        cardLayout.show(mainContentPanel, "ThongKe");
+        setActiveMenu("Thống kê");
     }
 
     private void addMenu(JPanel container, String text, String iconPath, String cardName) {

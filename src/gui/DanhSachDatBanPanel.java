@@ -324,7 +324,8 @@ public class DanhSachDatBanPanel extends JPanel {
 
     public void loadData(String query) {
         model.setRowCount(0);
-        dsDonDatHienTai = donDatBanDAO.getAllDonDat(); 
+        // Load toàn bộ lịch sử
+        dsDonDatHienTai = donDatBanDAO.getAllDonDatFullHistory(); 
         
         String keyword = query.toLowerCase();
         LocalDate today = LocalDate.now();
@@ -337,10 +338,12 @@ public class DanhSachDatBanPanel extends JPanel {
             boolean isMatch = false;
 
             if (keyword.isEmpty()) {
-                if (d.getNgayDat() != null && d.getNgayDat().equals(today)) {
+                // Nếu không tìm kiếm -> Chỉ hiện đơn từ ngày hôm nay trở đi (bao gồm tương lai)
+                if (d.getNgayDat() != null && !d.getNgayDat().isBefore(today)) {
                     isMatch = true;
                 }
             } else {
+                // Nếu có tìm kiếm -> Cho phép tìm hết toàn bộ quá khứ và tương lai
                 if (tenKH.toLowerCase().contains(keyword) || maDon.toLowerCase().contains(keyword) || sdt.contains(keyword)) {
                     isMatch = true;
                 }

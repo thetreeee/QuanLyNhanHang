@@ -129,14 +129,15 @@ public class ChiTietKhuyenMaiForm extends JDialog {
                 JOptionPane.showMessageDialog(this, "Ngày kết thúc phải sau ngày bắt đầu!"); return;
             }
 
-            // Cập nhật đối tượng
+            String newTrangThai = cbTrangThai.getSelectedItem().toString();
+
             kmCurrent.setTenKM(txtTen.getText().trim());
             kmCurrent.setLoaiKM(cbHinhThuc.getSelectedItem().toString());
             kmCurrent.setGiaTri(val);
             kmCurrent.setNgayBatDau(ngayBD);
             kmCurrent.setNgayKetThuc(ngayKT);
             kmCurrent.setDoiTuongApDung((DoiTuongKM) cbDoiTuong.getSelectedItem());
-            kmCurrent.setTrangThai(cbTrangThai.getSelectedItem().toString());
+            kmCurrent.setTrangThai(newTrangThai);
 
             // Gọi DAO
             dao.update(kmCurrent);

@@ -15,19 +15,21 @@ public class NhanVien_Dao {
         List<NhanVien> ds = new ArrayList<>();
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
             // CẬP NHẬT: Thêm soDienThoai vào câu lệnh SELECT
-            String sql = "SELECT maNV, hoTen, soDienThoai, gmail, chucVu, luong, matKhau, gioiTinh, trangThai FROM NhanVien";
+            String sql = "SELECT maNV, hoTen, ngaySinh, soDienThoai, gmail, chucVu, matKhau, gioiTinh, trangThai FROM NhanVien";
             Statement stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
             
             while (rs.next()) {
-                // Sử dụng Constructor 9 tham số (Đã có số điện thoại)
+                java.sql.Date sqlDate = rs.getDate("ngaySinh");
+                java.time.LocalDate ns = (sqlDate != null) ? sqlDate.toLocalDate() : null;
+                
                 NhanVien nv = new NhanVien(
                     rs.getString("maNV"),
                     rs.getString("hoTen"),
+                    ns,
                     rs.getString("soDienThoai"), // Đọc số điện thoại từ DB
                     rs.getString("gmail"),
                     rs.getString("chucVu"),
-                    rs.getDouble("luong"),
                     rs.getString("matKhau"),
                     rs.getString("gioiTinh"),
                     rs.getString("trangThai") 
@@ -40,23 +42,22 @@ public class NhanVien_Dao {
 
     public boolean insertNhanVien(NhanVien nv) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            // ĐÃ SỬA: 10 cột tương ứng với đúng 10 dấu chấm hỏi (?)
-            String sql = "INSERT INTO NhanVien (maNV, hoTen, soDienThoai, gmail, ngaySinh, gioiTinh, luong, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // ĐÃ SỬA: 9 cột tương ứng với 9 dấu chấm hỏi (?)
+            String sql = "INSERT INTO NhanVien (maNV, hoTen, soDienThoai, gmail, ngaySinh, gioiTinh, matKhau, chucVu, trangThai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = con.prepareStatement(sql);
             
-            // ĐÃ SỬA: Đánh lại số thứ tự liền mạch từ 1 đến 10
+            // ĐÃ SỬA: Đánh lại số thứ tự liền mạch từ 1 đến 9
             stmt.setString(1, nv.getMaNV());
             stmt.setString(2, nv.getHoTen());
             stmt.setString(3, nv.getSoDienThoai()); 
             stmt.setString(4, nv.getGmail());
-            stmt.setDate(5, java.sql.Date.valueOf("2000-01-01")); 
+            stmt.setDate(5, (nv.getNgaySinh() != null) ? java.sql.Date.valueOf(nv.getNgaySinh()) : null); 
             stmt.setString(6, nv.getGioiTinh());
-            stmt.setDouble(7, 5000000.0);         // Đổi từ 8 thành 7
-            stmt.setString(8, nv.getMatKhau());   // Đổi từ 9 thành 8
-            stmt.setString(9, nv.getChucVu());    // Đổi từ 10 thành 9
+            stmt.setString(7, nv.getMatKhau());
+            stmt.setString(8, nv.getChucVu());
             
             String trangThai = (nv.getTrangThai() != null && !nv.getTrangThai().trim().isEmpty()) ? nv.getTrangThai() : "Đang làm";
-            stmt.setString(10, trangThai);        // Đổi từ 11 thành 10
+            stmt.setString(9, trangThai);
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -71,17 +72,17 @@ public class NhanVien_Dao {
 
     public boolean updateNhanVien(NhanVien nv) {
         try (Connection con = DriverManager.getConnection(url, user, pass)) {
-            // CẬP NHẬT: Thêm SET soDienThoai vào câu lệnh UPDATE
-            String sql = "UPDATE NhanVien SET hoTen = ?, soDienThoai = ?, gmail = ?, gioiTinh = ?, matKhau = ?, chucVu = ?, trangThai = ? WHERE maNV = ?";
+            String sql = "UPDATE NhanVien SET hoTen = ?, ngaySinh = ?, soDienThoai = ?, gmail = ?, gioiTinh = ?, matKhau = ?, chucVu = ?, trangThai = ? WHERE maNV = ?";
             PreparedStatement stmt = con.prepareStatement(sql);
             stmt.setString(1, nv.getHoTen());
-            stmt.setString(2, nv.getSoDienThoai()); // Cập nhật số điện thoại
-            stmt.setString(3, nv.getGmail());
-            stmt.setString(4, nv.getGioiTinh());
-            stmt.setString(5, nv.getMatKhau());
-            stmt.setString(6, nv.getChucVu());
-            stmt.setString(7, nv.getTrangThai());
-            stmt.setString(8, nv.getMaNV());
+            stmt.setDate(2, (nv.getNgaySinh() != null) ? java.sql.Date.valueOf(nv.getNgaySinh()) : null);
+            stmt.setString(3, nv.getSoDienThoai()); // Cập nhật số điện thoại
+            stmt.setString(4, nv.getGmail());
+            stmt.setString(5, nv.getGioiTinh());
+            stmt.setString(6, nv.getMatKhau());
+            stmt.setString(7, nv.getChucVu());
+            stmt.setString(8, nv.getTrangThai());
+            stmt.setString(9, nv.getMaNV());
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
