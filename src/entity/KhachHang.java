@@ -46,4 +46,10 @@ public class KhachHang {
     
     public String getHangThanhVien() { return hangThanhVien; }
     public void setHangThanhVien(String hangThanhVien) { this.hangThanhVien = hangThanhVien; }
+
+	@Override
+	public String toString() {
+		return "KhachHang [maKH=" + maKH + ", hoTen=" + hoTen + ", soDienThoai=" + soDienThoai + ", tongChiTieu=" + tongChiTieu + ", hangThanhVien=" + hangThanhVien + "]";
+	}
+    
 }

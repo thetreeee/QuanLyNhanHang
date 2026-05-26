@@ -29,5 +29,8 @@
 	<classpathentry kind="lib" path="src/lib/SparseBitSet-1.2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Admin/Documents/code1ty/phattrienungdung/N7_QuanLyDatBan/nhahangTuanTruong/src/lib/flatlaf-3.4.1.jar"/>
 	<classpathentry kind="lib" path="src/lib/flatlaf-3.4.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Admin/Documents/code1ty/phattrienungdung/N7_QuanLyDatBan/nhahangTuanTruong/src/lib/commons-compress-1.21.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Admin/Documents/code1ty/phattrienungdung/N7_QuanLyDatBan/nhahangTuanTruong/src/lib/xmlbeans-5.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Admin/Documents/code1ty/phattrienungdung/N7_QuanLyDatBan/nhahangTuanTruong/src/lib/curvesapi-1.07.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
