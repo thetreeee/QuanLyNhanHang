@@ -65,13 +65,13 @@ public class ThongKeDAO {
     // =================================================================================
     public Map<String, Double> getTopMonAnBanChay(LocalDate tuNgay, LocalDate denNgay) {
         Map<String, Double> data = new LinkedHashMap<>();
-        String sql = "SELECT TOP 5 m.tenMon, SUM(c.thanhTien) as TongTien " +
+        String sql = "SELECT TOP 5 m.tenMon, SUM(c.soLuong) as SoLuongBan " +
                      "FROM ChiTietHoaDon c " +
                      "JOIN MonAn m ON c.maMon = m.maMon " +
                      "JOIN HoaDon h ON c.maHD = h.maHD " +
                      "WHERE CAST(h.ngayLap AS DATE) >= ? AND CAST(h.ngayLap AS DATE) <= ? " +
                      "GROUP BY m.tenMon " +
-                     "ORDER BY TongTien DESC";
+                     "ORDER BY SoLuongBan DESC";
                      
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -80,7 +80,7 @@ public class ThongKeDAO {
             
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    data.put(rs.getString("tenMon"), rs.getDouble("TongTien"));
+                    data.put(rs.getString("tenMon"), rs.getDouble("SoLuongBan"));
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }

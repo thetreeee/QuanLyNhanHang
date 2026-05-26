@@ -31,8 +31,10 @@ public class DanhSachDatBanPanel extends JPanel {
     private DonDatBanDAO donDatBanDAO = new DonDatBanDAO();
     private BanDAO banDAO = new BanDAO(); 
     
-    private List<DonDatBan> dsDonDatHienTai;
+    private List<entity.DonDatBan> dsDonDatHienTai;
     private boolean isUpdatingTable = false;
+    private Timer autoCheckTimer;
+    private String previousStateHash = "";
 
     public DanhSachDatBanPanel() {
         setLayout(new BorderLayout(20, 20));
@@ -85,6 +87,43 @@ public class DanhSachDatBanPanel extends JPanel {
             lblTime.setText("Thời gian hiện tại: " + sdf.format(new Date()));
         });
         timer.start();
+
+        autoCheckTimer = new Timer(3000, e -> {
+            if (isUpdatingTable) return;
+            
+            List<entity.DonDatBan> currentData = donDatBanDAO.getAllDonDat();
+            String currentHash = currentData.stream()
+                .map(d -> d.getMaDon() + d.getTrangThai() + d.getThoiGian() + d.getMaBan())
+                .collect(java.util.stream.Collectors.joining("|"));
+
+            if (!currentHash.equals(previousStateHash)) {
+                previousStateHash = currentHash;
+                
+                int selectedRow = table.getSelectedRow();
+                String selectedMaDon = null;
+                if (selectedRow != -1 && selectedRow < table.getRowCount()) {
+                    selectedMaDon = table.getValueAt(selectedRow, 0).toString();
+                }
+                
+                if (txtSearch != null) {
+                    loadData(txtSearch.getText().trim());
+                } else {
+                    loadData("");
+                }
+                
+                if (selectedMaDon != null) {
+                    for (int i = 0; i < table.getRowCount(); i++) {
+                        if (table.getValueAt(i, 0).toString().equals(selectedMaDon)) {
+                            table.setRowSelectionInterval(i, i);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        autoCheckTimer.start();
+
+
 
         // --- 2. BẢNG DỮ LIỆU ---
         String[] cols = {"Mã đơn", "Mã bàn", "Họ tên", "Số điện thoại", "Trạng thái"};

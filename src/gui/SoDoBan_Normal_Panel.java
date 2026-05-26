@@ -62,6 +62,7 @@ public class SoDoBan_Normal_Panel extends JPanel {
 
     private String floorFilter = "Tất cả";
     private String statusFilter = "Tất cả";
+    private String previousStateHash = "";
 
     private List<DonDatBan> dsDonDatHienTai = new ArrayList<>();
     private Set<String> cacDonDaCanhBao = new HashSet<>();
@@ -102,8 +103,15 @@ public class SoDoBan_Normal_Panel extends JPanel {
     }
 
     private void startAutoCheckTimer() {
-        autoCheckTimer = new Timer(5000, evt -> {
-            if (donDatBanDAO.autoUpdateMauBan()) loadData(txtSearch.getText());
+        autoCheckTimer = new Timer(3000, evt -> {
+            donDatBanDAO.autoUpdateMauBan(); 
+            List<Ban> currentData = banDAO.getAllBan();
+            String currentHash = currentData.stream().map(b -> b.getMaBan() + b.getTrangThai() + b.getMaKhoi() + b.getMaBanChinh()).collect(java.util.stream.Collectors.joining("|"));
+            
+            if (!currentHash.equals(previousStateHash)) {
+                previousStateHash = currentHash;
+                loadData(txtSearch.getText().trim());
+            }
             kiemTraKhachDenTre(); 
         });
         autoCheckTimer.start();

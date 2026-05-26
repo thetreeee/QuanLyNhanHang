@@ -42,6 +42,8 @@ public class SoDoBanPanel_NVPV extends JPanel {
 
     private NhanVien nhanVien;
     private String maNhanVien; 
+    private Timer autoCheckTimer;
+    private String previousStateHash = ""; 
 
     public SoDoBanPanel_NVPV(String maNV) {
         this.maNhanVien = maNV;
@@ -58,6 +60,17 @@ public class SoDoBanPanel_NVPV extends JPanel {
         });
         
         loadData("");
+
+        autoCheckTimer = new Timer(3000, evt -> {
+            List<Ban> currentData = banDAO.getAllBan();
+            String currentHash = currentData.stream().map(b -> b.getMaBan() + b.getTrangThai() + b.getMaKhoi() + b.getMaBanChinh()).collect(java.util.stream.Collectors.joining("|"));
+            
+            if (!currentHash.equals(previousStateHash)) {
+                previousStateHash = currentHash;
+                loadData(txtSearch != null ? txtSearch.getText().trim() : "");
+            }
+        });
+        autoCheckTimer.start();
     }
 
     private void initUI() {

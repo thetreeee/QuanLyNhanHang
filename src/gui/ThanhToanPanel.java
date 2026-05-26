@@ -65,6 +65,8 @@ public class ThanhToanPanel extends JPanel {
 	private String maNV;
 	private double tongTienHienTai = 0, khachCanTraHienTra = 0;
 	private DecimalFormat df = new DecimalFormat("#,### đ");
+	private Timer autoCheckTimer;
+	private String previousStateHash = "";
 
 	private String maKhachHangHienTai = null;
 
@@ -104,6 +106,52 @@ public class ThanhToanPanel extends JPanel {
 				btnActiveBan = null;
 			}
 		});
+
+		autoCheckTimer = new Timer(3000, e -> {
+			String activeMaBanGoc = null;
+			if (btnActiveBan != null) {
+				activeMaBanGoc = (String) btnActiveBan.getClientProperty("maBanGoc");
+			}
+			
+			List<Ban> currentData = banDAO.getAllBan();
+			String banHash = currentData.stream()
+				.filter(b -> b.getTrangThai().toLowerCase().contains("dùng") || b.getTrangThai().toLowerCase().contains("sử dụng"))
+				.map(b -> b.getMaBan() + b.getTrangThai() + b.getMaKhoi() + b.getMaBanChinh())
+				.collect(java.util.stream.Collectors.joining("|"));
+
+			String donDatMonHash = "";
+			try (java.sql.Connection con = connectDB.SQLConnection.getConnection()) {
+				java.sql.ResultSet rs = con.prepareStatement("SELECT COUNT(*), SUM(LEN(ISNULL(ghiChu, ''))) FROM DonDatMon").executeQuery();
+				if (rs.next()) donDatMonHash = rs.getInt(1) + "-" + rs.getInt(2);
+			} catch (Exception ex) {}
+
+			String chiTietHash = "";
+			if (activeMaBanGoc != null) {
+				try (java.sql.Connection con = connectDB.SQLConnection.getConnection()) {
+					java.sql.ResultSet rs = con.prepareStatement("SELECT COUNT(*), SUM(soLuong) FROM ChiTietDatMon WHERE maDonDat IN (SELECT maDonDat FROM DonDatMon WHERE maBan = '" + activeMaBanGoc + "')").executeQuery();
+					if (rs.next()) chiTietHash = rs.getInt(1) + "-" + rs.getInt(2);
+				} catch (Exception ex) {}
+			}
+			
+			String currentHash = banHash + "||" + donDatMonHash + "||" + chiTietHash;
+			
+			if (!currentHash.equals(previousStateHash)) {
+				previousStateHash = currentHash;
+				loadDuLieuBanTuDB();
+				if (activeMaBanGoc != null) {
+					for (Component c : pnlGridBan.getComponents()) {
+						if (c instanceof JButton) {
+							JButton b = (JButton) c;
+							if (activeMaBanGoc.equals(b.getClientProperty("maBanGoc"))) {
+								b.doClick(); 
+								break;
+							}
+						}
+					}
+				}
+			}
+		});
+		autoCheckTimer.start();
 	}
 
 	private JPanel createTopPanel() {

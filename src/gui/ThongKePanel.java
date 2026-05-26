@@ -145,7 +145,7 @@ public class ThongKePanel extends JPanel {
         
         pieChartArea = new PieChartDrawArea();
         pnlMonAnCharts.add(createChartWrapper("Bảng Xếp Hạng Món Ăn Tốt Nhất", scrollTable));
-        pnlMonAnCharts.add(createChartWrapper("Tỷ trọng doanh thu theo Món", pieChartArea));
+        pnlMonAnCharts.add(createChartWrapper("Tỷ trọng số lượng bán theo Món", pieChartArea));
         
         pnlChartsContainer.add(pnlDoanhThuChart, "DOANH_THU");
         pnlChartsContainer.add(pnlMonAnCharts, "MON_AN");
@@ -169,17 +169,12 @@ public class ThongKePanel extends JPanel {
         
         // --- FILTER & TABS AREA ---
         JPanel pnlFilter = new ModernPanel();
-        pnlFilter.setLayout(new BoxLayout(pnlFilter, BoxLayout.X_AXIS));
+        pnlFilter.setLayout(new WrapLayout(FlowLayout.LEFT, 0, 0));
         
         // Trái: Các bộ lọc
-        JPanel pnlFilterLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 12)) {
-            @Override
-            public Dimension getMinimumSize() {
-                return getPreferredSize();
-            }
-        };
+        JPanel pnlFilterLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 12));
         pnlFilterLeft.setOpaque(false);
-        pnlFilterLeft.setBorder(new EmptyBorder(5, 10, 5, 10));
+        pnlFilterLeft.setBorder(new EmptyBorder(5, 10, 5, 0));
         
         pnlFilterLeft.add(createLabel("Xem theo:"));
         cbxLoaiThongKe = new JComboBox<>(new String[]{"Ngày", "Tháng", "Quý"});
@@ -235,14 +230,9 @@ public class ThongKePanel extends JPanel {
         pnlFilterLeft.add(pnlQuy);
         
         // Phải: Tabs & Nút Lọc
-        JPanel pnlFilterRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12)) {
-            @Override
-            public Dimension getMinimumSize() {
-                return getPreferredSize();
-            }
-        };
+        JPanel pnlFilterRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12));
         pnlFilterRight.setOpaque(false);
-        pnlFilterRight.setBorder(new EmptyBorder(5, 10, 5, 10));
+        pnlFilterRight.setBorder(new EmptyBorder(5, 0, 5, 10));
         
         btnTabDoanhThu = createTabButton("Doanh thu", true);
         btnTabMonAn = createTabButton("Món ăn", false);
@@ -262,8 +252,21 @@ public class ThongKePanel extends JPanel {
         pnlFilterRight.add(btnTabMonAn);
         pnlFilterRight.add(btnExport);
 
+        Component dynamicGlue = new Box.Filler(new Dimension(0,0), new Dimension(0,0), new Dimension(0,0)) {
+            @Override
+            public Dimension getPreferredSize() {
+                Container parent = getParent();
+                if (parent == null || parent.getWidth() == 0) return new Dimension(0, 0);
+                int pw = parent.getWidth();
+                int lw = pnlFilterLeft.getPreferredSize().width;
+                int rw = pnlFilterRight.getPreferredSize().width;
+                int space = pw - lw - rw - 15;
+                return space > 0 ? new Dimension(space, 0) : new Dimension(0, 0);
+            }
+        };
+
         pnlFilter.add(pnlFilterLeft);
-        pnlFilter.add(Box.createHorizontalGlue());
+        pnlFilter.add(dynamicGlue);
         pnlFilter.add(pnlFilterRight);
 
         Runnable checkDateLogic = () -> {
@@ -613,7 +616,13 @@ public class ThongKePanel extends JPanel {
                 lineChartArea.updateData(lineData);
             } else {
                 java.util.List<Object[]> tableData = thongKeDAO.getThongKeMonAnBang(tuNgay, denNgay);
-                Map<String, Double> pieData = thongKeDAO.getTopMonAnBanChay(tuNgay, denNgay);
+                Map<String, Double> pieData = new java.util.LinkedHashMap<>();
+                int pieCount = 0;
+                for (Object[] row : tableData) {
+                    if (pieCount >= 5) break;
+                    pieData.put(row[1].toString(), Double.parseDouble(row[2].toString()));
+                    pieCount++;
+                }
                 
                 modelMonAn.setRowCount(0);
                 int stt = 1;
@@ -901,28 +910,44 @@ public class ThongKePanel extends JPanel {
             repaint();
             
             for(java.awt.event.MouseMotionListener l : getMouseMotionListeners()) removeMouseMotionListener(l);
+            for(java.awt.event.MouseListener l : getMouseListeners()) removeMouseListener(l);
+
             addMouseMotionListener(new MouseAdapter() {
                 @Override
                 public void mouseMoved(MouseEvent e) {
                     if (data == null || data.isEmpty()) return;
-                    int paddingX = 40, paddingY = 30;
-                    int width = getWidth() - paddingX * 2;
+                    int paddingX = 85; 
+                    int width = getWidth() - paddingX - 40; 
                     int n = data.size();
                     if (n == 0) return;
                     
                     int oldHover = hoverIndex;
-                    hoverIndex = -1;
                     int step = (n == 1) ? width : width / (n - 1);
                     
-                    int i = 0;
-                    for (Map.Entry<String, Double> entry : data.entrySet()) {
+                    int minDistance = Integer.MAX_VALUE;
+                    int bestIndex = -1;
+                    
+                    for (int i = 0; i < n; i++) {
                         int pointX = paddingX + i * step;
-                        if (Math.abs(e.getX() - pointX) <= 15) {
-                            hoverIndex = i; break;
+                        int dist = Math.abs(e.getX() - pointX);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            bestIndex = i;
                         }
-                        i++;
                     }
+                    
+                    hoverIndex = bestIndex;
                     if (oldHover != hoverIndex) repaint();
+                }
+            });
+
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (hoverIndex != -1) {
+                        hoverIndex = -1;
+                        repaint();
+                    }
                 }
             });
         }
@@ -939,16 +964,31 @@ public class ThongKePanel extends JPanel {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            int paddingX = 40, paddingY = 30;
-            int width = getWidth() - paddingX * 2;
-            int height = getHeight() - paddingY * 2;
+            int paddingX = 85, paddingY = 35;
+            int width = getWidth() - paddingX - 40;
+            int height = getHeight() - paddingY * 2 - 20;
 
             double maxVal = data.values().stream().mapToDouble(Double::doubleValue).max().orElse(1);
             if (maxVal == 0) maxVal = 1;
 
-            // Vẽ trục ngang X
-            g2.setColor(new Color(200, 200, 200));
-            g2.drawLine(paddingX, getHeight() - paddingY, getWidth() - paddingX, getHeight() - paddingY);
+            // Lưới ngang (Grid lines) và Nhãn trục Y (Oy)
+            g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[]{5f}, 0f));
+            for (int k = 0; k <= 5; k++) {
+                int yLine = getHeight() - paddingY - (k * height / 5);
+                g2.setColor(new Color(230, 230, 230));
+                g2.drawLine(paddingX, yLine, paddingX + width, yLine);
+                
+                g2.setColor(new Color(130, 130, 130));
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                String yLabel = dfMoney.format(maxVal * k / 5).replace(" đ", "");
+                int lw = g2.getFontMetrics().stringWidth(yLabel);
+                g2.drawString(yLabel, paddingX - lw - 10, yLine + 4);
+            }
+
+            // Vẽ trục ngang Ox (Solid line)
+            g2.setColor(new Color(180, 180, 180));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawLine(paddingX, getHeight() - paddingY, paddingX + width, getHeight() - paddingY);
 
             int n = data.size();
             int step = (n == 1) ? width : width / (n - 1);
@@ -998,10 +1038,10 @@ public class ThongKePanel extends JPanel {
                 int px = xPoints[i];
                 int py = yPoints[i];
 
-                // Điểm
+                // Điểm mặc định
                 g2.setColor(Color.WHITE);
                 g2.fillOval(px - 5, py - 5, 10, 10);
-                g2.setColor(i == hoverIndex ? new Color(245, 158, 11) : BLUE_ACCENT);
+                g2.setColor(BLUE_ACCENT);
                 g2.setStroke(new BasicStroke(2f));
                 g2.drawOval(px - 5, py - 5, 10, 10);
 
@@ -1019,14 +1059,53 @@ public class ThongKePanel extends JPanel {
                     g2.drawString(label, px - lw/2, getHeight() - paddingY + 20);
                 }
 
-                // Tooltip
+                // Vẽ Crosshair và Tooltip đẹp kiểu Google nếu đang Hover
                 if (i == hoverIndex) {
-                    String moneyStr = dfMoney.format(entry.getValue());
-                    int tw = g2.getFontMetrics().stringWidth(moneyStr);
-                    g2.setColor(new Color(0, 0, 0, 200));
-                    g2.fillRoundRect(px - tw/2 - 5, py - 35, tw + 10, 25, 5, 5);
+                    // Vẽ Crosshair Line dọc từ trên xuống trục X
+                    g2.setColor(new Color(150, 150, 150, 180));
+                    Stroke dashed = new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, new float[]{5f}, 0.0f);
+                    g2.setStroke(dashed);
+                    g2.drawLine(px, paddingY, px, getHeight() - paddingY);
+                    
+                    // Vẽ lại điểm cho nổi lên trên Crosshair
                     g2.setColor(Color.WHITE);
-                    g2.drawString(moneyStr, px - tw/2, py - 18);
+                    g2.fillOval(px - 6, py - 6, 12, 12);
+                    g2.setColor(new Color(245, 158, 11));
+                    g2.setStroke(new BasicStroke(3f));
+                    g2.drawOval(px - 6, py - 6, 12, 12);
+
+                    // Khung Tooltip
+                    String moneyStr = dfMoney.format(entry.getValue());
+                    String dateStr = label;
+
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                    int twMoney = g2.getFontMetrics().stringWidth(moneyStr);
+                    g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                    int twDate = g2.getFontMetrics().stringWidth(dateStr);
+                    int tw = Math.max(twMoney, twDate);
+                    
+                    int boxW = tw + 24;
+                    int boxH = 46;
+                    int boxX = px - boxW/2;
+                    int boxY = py - boxH - 15;
+                    
+                    // Giữ Tooltip không bị tràn màn hình
+                    if (boxX < 0) boxX = 5;
+                    if (boxX + boxW > getWidth()) boxX = getWidth() - boxW - 5;
+                    if (boxY < 0) boxY = py + 15; 
+
+                    g2.setColor(new Color(30, 41, 59, 220)); 
+                    g2.fillRoundRect(boxX, boxY, boxW, boxH, 8, 8);
+                    
+                    // Nhãn Ngày Tháng
+                    g2.setColor(new Color(203, 213, 225));
+                    g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+                    g2.drawString(dateStr, boxX + (boxW - twDate)/2, boxY + 16);
+                    
+                    // Nhãn Tiền
+                    g2.setColor(Color.WHITE);
+                    g2.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                    g2.drawString(moneyStr, boxX + (boxW - twMoney)/2, boxY + 36);
                 }
                 i++;
             }
@@ -1177,10 +1256,10 @@ public class ThongKePanel extends JPanel {
                 String legendText = entry.getKey() + " (" + dfPercent.format((value / total) * 100) + "%)";
                 g2.drawString(legendText, legendX + 20, legendY);
                 
-                // Tiền
+                // Số lượng
                 g2.setColor(Color.GRAY);
                 g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-                g2.drawString(dfMoney.format(value), legendX + 20, legendY + 15);
+                g2.drawString(Math.round(value) + " phần", legendX + 20, legendY + 15);
                 
                 legendY += 40;
                 colorIdx++;

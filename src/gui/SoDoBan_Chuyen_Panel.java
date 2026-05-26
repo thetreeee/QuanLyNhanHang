@@ -52,6 +52,8 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
     private String floorFilter = "Tất cả";
     private String maNV;
     private List<DonDatBan> dsDonDatHienTai = new ArrayList<>();
+    private Timer autoCheckTimer;
+    private String previousStateHash = "";
 
     public SoDoBan_Chuyen_Panel(String maNV) {
         this.maNV = maNV;
@@ -72,6 +74,17 @@ public class SoDoBan_Chuyen_Panel extends JPanel {
                 });
             }
         });
+
+        autoCheckTimer = new Timer(3000, evt -> {
+            List<Ban> currentData = banDAO.getAllBan();
+            String currentHash = currentData.stream().map(b -> b.getMaBan() + b.getTrangThai() + b.getMaKhoi() + b.getMaBanChinh()).collect(java.util.stream.Collectors.joining("|"));
+            
+            if (!currentHash.equals(previousStateHash)) {
+                previousStateHash = currentHash;
+                loadData(txtSearch != null ? txtSearch.getText().trim() : "");
+            }
+        });
+        autoCheckTimer.start();
     }
 
     private void initUI() {
