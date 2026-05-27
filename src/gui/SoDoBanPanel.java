@@ -139,6 +139,7 @@ public class SoDoBanPanel extends JPanel {
         pnlStatus.add(createStatusButton("Trống", COLOR_TRONG));
         pnlStatus.add(createStatusButton("Đã đặt", COLOR_DAT));
         pnlStatus.add(createStatusButton("Đang dùng", COLOR_DUNG));
+        pnlStatus.add(createStatusButton("Đã xoá", new Color(231, 76, 60)));
 
         pnlFilterBar.add(pnlFloorFilter, BorderLayout.WEST);
         pnlFilterBar.add(pnlStatus, BorderLayout.EAST);
@@ -223,7 +224,12 @@ public class SoDoBanPanel extends JPanel {
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        List<Ban> dsAll = banDAO.getAllBan();
+        List<Ban> dsAll;
+        if ("Đã xoá".equals(statusFilter)) {
+            dsAll = banDAO.getBanDaXoa();
+        } else {
+            dsAll = banDAO.getAllBan();
+        }
         String[] dsKhuVuc = {"Ngoài trời", "Phòng VIP", "Tầng 1", "Tầng 2"};
         for (String khuVuc : dsKhuVuc) {
             if (!floorFilter.equals("Tất cả") && !floorFilter.equalsIgnoreCase(khuVuc)) continue;
@@ -236,7 +242,7 @@ public class SoDoBanPanel extends JPanel {
                 })
                 .filter(b -> b.getTenBan().toLowerCase().contains(query.toLowerCase()))
                 .filter(b -> {
-                    if (statusFilter.equals("Tất cả")) return true;
+                    if (statusFilter.equals("Tất cả") || statusFilter.equals("Đã xoá")) return true;
                     String tt = b.getTrangThai().toLowerCase();
                     if (statusFilter.equals("Đang dùng")) return tt.contains("dùng") || tt.contains("vụ") || tt.contains("sử dụng");
                     if (statusFilter.equals("Đã đặt")) return tt.contains("đặt");
@@ -310,10 +316,33 @@ public class SoDoBanPanel extends JPanel {
         String tt = ban.getTrangThai().toLowerCase();
         if (tt.contains("dùng") || tt.contains("vụ") || tt.contains("sử dụng")) bg = COLOR_DUNG;
         else if (tt.contains("đặt")) bg = COLOR_DAT;
+        else if (tt.contains("xoá") || tt.contains("xóa")) bg = new Color(140, 140, 140);
         card.setBackground(bg);
         
-        JLabel lblX = new JLabel("X"); 
-        lblX.setFont(new Font("Arial", Font.BOLD, 15));
+        JLabel lblX = new JLabel();
+        if (tt.contains("xoá") || tt.contains("xóa")) {
+            lblX.setIcon(new Icon() {
+                @Override
+                public void paintIcon(Component c, Graphics g, int x, int y) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(255, 255, 255, 220));
+                    g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    // Vẽ vòng xoay (arc)
+                    g2.drawArc(x + 2, y + 2, 12, 12, 100, 250);
+                    // Vẽ mũi tên ở đỉnh
+                    g2.fillPolygon(new int[]{x + 4, x + 12, x + 8}, new int[]{y + 4, y + 4, y - 1}, 3);
+                    g2.dispose();
+                }
+                @Override public int getIconWidth() { return 16; }
+                @Override public int getIconHeight() { return 16; }
+            });
+            lblX.setToolTipText("Khôi phục bàn");
+        } else {
+            lblX.setText("X");
+            lblX.setToolTipText("Xóa bàn");
+            lblX.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        }
         lblX.setForeground(new Color(255, 255, 255, 180));
         lblX.setHorizontalAlignment(SwingConstants.RIGHT);
         lblX.setBorder(new EmptyBorder(5, 0, 0, 10));
@@ -321,6 +350,16 @@ public class SoDoBanPanel extends JPanel {
         lblX.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
+                String currentTT = ban.getTrangThai().toLowerCase();
+                if (currentTT.contains("xoá") || currentTT.contains("xóa")) {
+                    if (JOptionPane.showConfirmDialog(null, "Khôi phục " + ban.getTenBan() + "?", "Khôi phục", 0) == 0) {
+                        banDAO.updateTrangThaiBan(ban.getMaBan(), "Trống");
+                        statusFilter = "Tất cả"; // Chuyển về "Tất cả" để thấy bàn vừa khôi phục
+                        loadData(txtSearch.getText());
+                    }
+                    return;
+                }
+
                 // Kiểm tra đơn đặt
                 dao.DonDatBanDAO donDao = new dao.DonDatBanDAO();
                 if (donDao.isBanDangCoDonDat(ban.getMaBan())) {

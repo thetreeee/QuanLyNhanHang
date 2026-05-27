@@ -34,7 +34,6 @@ public class QuanLyHoaDonPanel extends JPanel {
 	private JLabel lblTimeDate;
 	private JTextField txtSearch;
 	private JDateChooser dcTuNgay, dcDenNgay;
-	private JButton btnXem;
 	private JTable tblHoaDon;
 	private DefaultTableModel modelHoaDon;
 
@@ -105,7 +104,7 @@ public class QuanLyHoaDonPanel extends JPanel {
 		txtSearch = new JTextField(20);
 		txtSearch.setPreferredSize(new Dimension(220, 38));
 		txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-		txtSearch.putClientProperty("JTextField.placeholderText", "Mã Hóa Đơn, Mã Bàn...");
+		txtSearch.putClientProperty("JTextField.placeholderText", "Mã Hóa Đơn, Mã Bàn, Tên KH...");
 		pnlFilter.add(txtSearch);
 
 		pnlFilter.add(createNormalLabel("Từ ngày:"));
@@ -121,18 +120,6 @@ public class QuanLyHoaDonPanel extends JPanel {
 		((JTextField) dcDenNgay.getDateEditor().getUiComponent()).putClientProperty("JTextField.placeholderText", "dd/MM/yyyy");
 		styleDateChooser(dcDenNgay); 
 		pnlFilter.add(dcDenNgay);
-
-		btnXem = new JButton("Xem");
-		btnXem.setFont(new Font("Segoe UI", Font.BOLD, 15));
-		btnXem.setForeground(Color.WHITE);
-		btnXem.setBackground(new Color(255, 102, 102));
-		btnXem.setPreferredSize(new Dimension(100, 38));
-		btnXem.setCursor(new Cursor(Cursor.HAND_CURSOR));
-		btnXem.setFocusPainted(false);
-		btnXem.putClientProperty("JButton.buttonType", "roundRect");
-		btnXem.putClientProperty("JButton.arc", 15);
-		btnXem.setBorderPainted(false);
-		pnlFilter.add(btnXem);
 
 		pnlHeader.add(pnlFilter);
 
@@ -245,74 +232,14 @@ public class QuanLyHoaDonPanel extends JPanel {
 	}
 
 	private void setupListeners() {
-        txtSearch.addActionListener(e -> btnXem.doClick());
-        ((JTextField) dcTuNgay.getDateEditor().getUiComponent()).addActionListener(e -> btnXem.doClick());
-        ((JTextField) dcDenNgay.getDateEditor().getUiComponent()).addActionListener(e -> btnXem.doClick());
-
-		btnXem.addActionListener(e -> {
-			String keyword = txtSearch.getText().trim().toLowerCase();
-			LocalDate tuNgay = null;
-			LocalDate denNgay = null;
-
-			Date dateTu = dcTuNgay.getDate();
-			if (dateTu != null) {
-				tuNgay = dateTu.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-			}
-
-			Date dateDen = dcDenNgay.getDate();
-			if (dateDen != null) {
-				denNgay = dateDen.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-			}
-
-			modelHoaDon.setRowCount(0);
-			List<HoaDon> list = hoaDonDAO.getAll();
-			LocalDate today = LocalDate.now();
-
-			boolean isDefaultSearch = keyword.isEmpty() && tuNgay == null && denNgay == null;
-
-			for (HoaDon hd : list) {
-				boolean matchKeyword = true;
-				boolean matchDate = true;
-
-				if (!keyword.isEmpty()) {
-					String maHD = hd.getMaHD() != null ? hd.getMaHD().toLowerCase() : "";
-					String maBan = hd.getBan() != null ? hd.getBan().getMaBan().toLowerCase() : "";
-					if (!maHD.contains(keyword) && !maBan.contains(keyword)) {
-						matchKeyword = false;
-					}
-				}
-
-				if (hd.getNgayLap() != null) {
-					LocalDate ngayLapDate = hd.getNgayLap().toLocalDate();
-
-					if (isDefaultSearch) {
-						if (!ngayLapDate.equals(today)) {
-							matchDate = false;
-						}
-					} else {
-						if (tuNgay != null && ngayLapDate.isBefore(tuNgay)) {
-							matchDate = false;
-						}
-						if (denNgay != null && ngayLapDate.isAfter(denNgay)) {
-							matchDate = false;
-						}
-					}
-				} else {
-					if (isDefaultSearch)
-						matchDate = false;
-				}
-
-				if (matchKeyword && matchDate) {
-					String tg = hd.getNgayLap() != null ? hd.getNgayLap().format(fmtDateTime) : "N/A";
-					String km = hd.getKhuyenMai() != null ? hd.getKhuyenMai().getMaKM() : "Không";
-
-					modelHoaDon.addRow(new Object[] { hd.getMaHD(), tg, km,
-							hd.getNhanVien() != null ? hd.getNhanVien().getMaNV() : "N/A",
-							hd.getBan() != null ? hd.getBan().getMaBan() : "N/A", hd.getPhuongThucTT(),
-							df.format(hd.getTongTien()), "Đã thanh toán" });
-				}
-			}
-		});
+        txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { thucHienLocVaTimKiem(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { thucHienLocVaTimKiem(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { thucHienLocVaTimKiem(); }
+        });
+        
+        dcTuNgay.addPropertyChangeListener("date", e -> thucHienLocVaTimKiem());
+        dcDenNgay.addPropertyChangeListener("date", e -> thucHienLocVaTimKiem());
 
 		tblHoaDon.addMouseListener(new MouseAdapter() {
 			@Override
@@ -337,6 +264,72 @@ public class QuanLyHoaDonPanel extends JPanel {
 		});
 	}
 
+	private void thucHienLocVaTimKiem() {
+		String keyword = txtSearch.getText().trim().toLowerCase();
+		LocalDate tuNgay = null;
+		LocalDate denNgay = null;
+
+		Date dateTu = dcTuNgay.getDate();
+		if (dateTu != null) {
+			tuNgay = dateTu.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		}
+
+		Date dateDen = dcDenNgay.getDate();
+		if (dateDen != null) {
+			denNgay = dateDen.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		}
+
+		modelHoaDon.setRowCount(0);
+		List<HoaDon> list = hoaDonDAO.getAll();
+		LocalDate today = LocalDate.now();
+
+		boolean isDefaultSearch = keyword.isEmpty() && tuNgay == null && denNgay == null;
+
+		for (HoaDon hd : list) {
+			boolean matchKeyword = true;
+			boolean matchDate = true;
+
+			if (!keyword.isEmpty()) {
+				String maHD = hd.getMaHD() != null ? hd.getMaHD().toLowerCase() : "";
+				String maBan = hd.getBan() != null ? hd.getBan().getMaBan().toLowerCase() : "";
+				String tenKH = (hd.getKhachHang() != null && hd.getKhachHang().getHoTen() != null) ? hd.getKhachHang().getHoTen().toLowerCase() : "";
+				if (!maHD.contains(keyword) && !maBan.contains(keyword) && !tenKH.contains(keyword)) {
+					matchKeyword = false;
+				}
+			}
+
+			if (hd.getNgayLap() != null) {
+				LocalDate ngayLapDate = hd.getNgayLap().toLocalDate();
+
+				if (isDefaultSearch) {
+					if (!ngayLapDate.equals(today)) {
+						matchDate = false;
+					}
+				} else {
+					if (tuNgay != null && ngayLapDate.isBefore(tuNgay)) {
+						matchDate = false;
+					}
+					if (denNgay != null && ngayLapDate.isAfter(denNgay)) {
+						matchDate = false;
+					}
+				}
+			} else {
+				if (isDefaultSearch)
+					matchDate = false;
+			}
+
+			if (matchKeyword && matchDate) {
+				String tg = hd.getNgayLap() != null ? hd.getNgayLap().format(fmtDateTime) : "N/A";
+				String km = hd.getKhuyenMai() != null ? hd.getKhuyenMai().getMaKM() : "Không";
+
+				modelHoaDon.addRow(new Object[] { hd.getMaHD(), tg, km,
+						hd.getNhanVien() != null ? hd.getNhanVien().getMaNV() : "N/A",
+						hd.getBan() != null ? hd.getBan().getMaBan() : "N/A", hd.getPhuongThucTT(),
+						df.format(hd.getTongTien()), "Đã thanh toán" });
+			}
+		}
+	}
+
 	private void showChiTietHoaDonDialog(String maHD, String thoiGian, String maKM, String maNV, String maBan,
 			String phuongThucTT, String tongTien, String trangThai) {
 		JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Chi Tiết Hóa Đơn", true);
@@ -356,13 +349,24 @@ public class QuanLyHoaDonPanel extends JPanel {
 						TitledBorder.LEFT, TitledBorder.TOP, new Font("Segoe UI", Font.BOLD, 16), Color.BLACK),
 				new EmptyBorder(15, 15, 15, 15)));
 
+		// Tìm tên khách hàng (Lấy trực tiếp từ danh sách DAO đã JOIN siêu nhanh, không cần query lẻ)
+		String tenKhachHang = "Khách vãng lai";
+		for (HoaDon hd : hoaDonDAO.getAll()) {
+			if (hd.getMaHD().equals(maHD)) {
+				if (hd.getKhachHang() != null && hd.getKhachHang().getHoTen() != null) {
+					tenKhachHang = hd.getKhachHang().getHoTen();
+				}
+				break;
+			}
+		}
+
 		pnlInfo.add(createRowInfo("Mã hóa đơn:", maHD));
 		pnlInfo.add(createRowInfo("Thời gian lập:", thoiGian));
 		pnlInfo.add(createRowInfo("Mã nhân viên:", maNV));
 		pnlInfo.add(createRowInfo("Mã bàn:", maBan));
 		pnlInfo.add(createRowInfo("Mã khuyến mãi:", maKM));
 		pnlInfo.add(createRowInfo("Phương thức TT:", phuongThucTT));
-		pnlInfo.add(createRowInfo("Tổng tiền:", tongTien, Color.RED));
+		pnlInfo.add(createRowInfo("Khách hàng:", tenKhachHang, new Color(0, 102, 204)));
 		pnlInfo.add(createRowInfo("Trạng thái:", trangThai, new Color(40, 167, 69)));
 
 		pnlMain.add(pnlInfo, BorderLayout.NORTH);
@@ -407,17 +411,26 @@ public class QuanLyHoaDonPanel extends JPanel {
 			modelCT.addRow(new Object[] { maHD, maMon, tenMon, sl, df.format(thTien) });
 		}
 
+		// Đưa Tổng cộng vào hàng cuối của bảng
+		modelCT.addRow(new Object[] { "", "", "<html><b style='font-size:14px;'>TỔNG CỘNG:</b></html>", "", "<html><b style='color:red; font-size:14px;'>" + tongTien + "</b></html>" });
+
 		pnlTableWrapper.add(new JScrollPane(tblCT), BorderLayout.CENTER);
 		pnlMain.add(pnlTableWrapper, BorderLayout.CENTER);
 
-		JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+		JPanel pnlBottom = new JPanel(new BorderLayout());
 		pnlBottom.setBackground(new Color(245, 245, 245));
+		pnlBottom.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+		JPanel pnlDong = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+		pnlDong.setOpaque(false);
 		JButton btnDong = new JButton("ĐÓNG");
 		btnDong.setFont(new Font("Segoe UI", Font.BOLD, 15));
 		btnDong.setPreferredSize(new Dimension(100, 40));
 		btnDong.setCursor(new Cursor(Cursor.HAND_CURSOR));
 		btnDong.addActionListener(e -> dialog.dispose());
-		pnlBottom.add(btnDong);
+		pnlDong.add(btnDong);
+
+		pnlBottom.add(pnlDong, BorderLayout.EAST);
 
 		dialog.add(pnlMain, BorderLayout.CENTER);
 		dialog.add(pnlBottom, BorderLayout.SOUTH);

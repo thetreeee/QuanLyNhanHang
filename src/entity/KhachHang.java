@@ -19,9 +19,9 @@ public class KhachHang {
 
     // Logic tự động tính hạng theo Tổng chi tiêu
     public void tinhToanHang() {
-        if (this.tongChiTieu >= 20000000) {
+        if (this.tongChiTieu >= 10000000) {
             this.hangThanhVien = "Kim Cương";
-        } else if (this.tongChiTieu >= 10000000) {
+        } else if (this.tongChiTieu >= 5000000) {
             this.hangThanhVien = "Vàng";
         } else {
             this.hangThanhVien = "Bạc";

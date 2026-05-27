@@ -249,9 +249,49 @@ public class DialogChiTietDonDat extends JDialog {
                 return;
             }
 
+            // 2.5 Kiểm tra cảnh báo khách vãng lai (1.5 tiếng = 90 phút)
+            DateTimeFormatter fNgay = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            LocalDate ngayMoi;
+            LocalTime gioMoi;
+            try {
+                ngayMoi = LocalDate.parse(txtNgayDat.getText().trim(), fNgay);
+                gioMoi = LocalTime.parse(txtThoiGian.getText().trim(), DateTimeFormatter.ofPattern("HH:mm"));
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Ngày hoặc giờ không đúng định dạng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (ngayMoi.equals(LocalDate.now())) {
+                boolean coBanDangDung = false;
+                for (String maBan : dsBanMoi) {
+                    Ban b = banDAO.getBanByMa(maBan);
+                    if (b != null && "Đang dùng".equalsIgnoreCase(b.getTrangThai())) {
+                        coBanDangDung = true;
+                        break;
+                    }
+                }
+                
+                if (coBanDangDung) {
+                    int phutHienTai = LocalTime.now().getHour() * 60 + LocalTime.now().getMinute();
+                    int phutMoi = gioMoi.getHour() * 60 + gioMoi.getMinute();
+                    
+                    if (phutMoi - phutHienTai < 90 && phutMoi - phutHienTai > 0) {
+                        int ans = JOptionPane.showConfirmDialog(this, 
+                            "Bàn này hiện ĐANG CÓ KHÁCH (khách vãng lai).\n" +
+                            "Nếu đổi giờ đặt thành " + gioMoi.toString() + ", khoảng thời gian còn lại \n" +
+                            "không đủ 1.5 tiếng để khách vãng lai dùng bữa xong.\n\n" +
+                            "Bạn có chắc chắn vẫn muốn ép đổi giờ không?", 
+                            "Cảnh báo thời gian", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                        if (ans != JOptionPane.YES_OPTION) {
+                            return;
+                        }
+                    }
+                }
+            }
+
             // 3. Tiến hành gọi DAO cập nhật
             if (donDAO.capNhatBanChoDonDat(maDonGoc, dsBanMoi, tongKhachMoi)) {
-                donDAO.updateTrangThaiCuaDon(maDonGoc, cbTrangThai.getSelectedItem().toString());
+                donDAO.updateThongTinChiTietDon(maDonGoc, ngayMoi, gioMoi, tongKhachMoi, cbTrangThai.getSelectedItem().toString());
                 JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
                 dispose();
             }

@@ -3,7 +3,8 @@ package entity;
 public enum DoiTuongKM {
     TAT_CA("Tất cả khách hàng"),
     TRUA("Khách dùng bữa trưa"),
-    MON("Khách dùng món");
+    MON("Khách dùng món"),
+    KHACH_HANG_THEO_HANG("Khách hàng theo hạng");
 
     private final String label;
 

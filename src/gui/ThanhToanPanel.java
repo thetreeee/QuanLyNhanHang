@@ -12,6 +12,8 @@ import entity.DonDatMon;
 import entity.ChiTietDatMon;
 import entity.KhuyenMai;
 import entity.HoaDon;
+import entity.KhachHang;
+import dao.KhachHang_DAO;
 import connectDB.SQLConnection;
 
 import javax.swing.*;
@@ -44,7 +46,7 @@ public class ThanhToanPanel extends JPanel {
 	private JPanel pnlDetailContainer, pnlGridBan;
 	private JLabel lblTimeDate;
 	private JTextField txtSearch;
-	private JButton btnTim, btnLamMoi, btnGopDon;
+	private JButton btnGopDon;
 	private Timer timer;
 
 	private List<JButton> listBanButtons = new ArrayList<>();
@@ -58,7 +60,6 @@ public class ThanhToanPanel extends JPanel {
 
 	private JComboBox<String> cbKhuyenMai, cbPhuongThuc;
 	private JLabel lblTongTien, lblGiamGia, lblVAT, lblKhachCanTra;
-	private JPanel pnlQRCode;
 	private JCheckBox chkInHoaDon;
 	private JButton btnXacNhan, btnHuy;
 
@@ -185,15 +186,7 @@ public class ThanhToanPanel extends JPanel {
 		txtSearch = new JTextField(25); 
 		txtSearch.setPreferredSize(new Dimension(250, 38));
 		txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-		txtSearch.putClientProperty("JTextField.placeholderText", "");
-		
-		btnTim = new JButton("Tìm"); 
-		styleButton(btnTim, new Color(255, 102, 102), Color.WHITE);
-		btnTim.setPreferredSize(new Dimension(90, 38));
-		
-		btnLamMoi = new JButton("Làm mới"); 
-		styleButton(btnLamMoi, new Color(140, 226, 163), Color.BLACK);
-		btnLamMoi.setPreferredSize(new Dimension(110, 38));
+		txtSearch.putClientProperty("JTextField.placeholderText", "Tìm bàn thanh toán");
 		
 		btnGopDon = new JButton("Gộp đơn TT"); 
 		styleButton(btnGopDon, new Color(179, 229, 252), Color.BLACK);
@@ -201,7 +194,7 @@ public class ThanhToanPanel extends JPanel {
 
 		JPanel pS = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0)); 
 		pS.setOpaque(false);
-		pS.add(txtSearch); pS.add(btnTim); pS.add(btnLamMoi); pS.add(btnGopDon);
+		pS.add(txtSearch); pS.add(btnGopDon);
 		pnl.add(pS); 
 		pnl.add(Box.createRigidArea(new Dimension(0, 20)));
 
@@ -239,11 +232,8 @@ public class ThanhToanPanel extends JPanel {
 		JButton btn = new JButton(tenBanHienThi); 
 		btn.setFont(new Font("Segoe UI", Font.BOLD, 14)); 
 		
-		// ĐÃ SỬA: Lấy chiều rộng dựa theo nội dung chữ vừa khít (chỉ cộng thêm một chút padding)
 		Dimension prefSize = btn.getPreferredSize();
-		// Giảm số +30 xuống +10 (hoặc +5) để chiều ngang ôm sát vào chữ
 		btn.setPreferredSize(new Dimension(prefSize.width + 5, 36)); 
-		// Thêm dòng này để ép lề (margin) bên trong của nút nhỏ lại tối đa
 		btn.setMargin(new Insets(0, 5, 0, 5));
 		
 		btn.putClientProperty("maBanGoc", maBanGoc); 
@@ -268,7 +258,6 @@ public class ThanhToanPanel extends JPanel {
 			lblMaBanInfo.setText("Mã bàn: " + tenBanHienThi); 
 			lblMaNVInfo.setText("Mã nhân viên: " + maNV); 
 			
-			// ĐÃ SỬA: Nếu ghi chú rỗng thì để trống, không hiển thị chữ "Không"
 			lblGhiChuInfo.setText("Ghi chú: " + ghiChuThucTe);
 			
 			loadChiTietTuDB(maBanGoc);
@@ -292,7 +281,6 @@ public class ThanhToanPanel extends JPanel {
 		JPanel pnl = new JPanel(new BorderLayout(20, 0)); 
 		pnl.setOpaque(false);
 		
-		// ==================== TRÁI ====================
 		JPanel pL = new JPanel(new BorderLayout(0, 20)); 
 		pL.setOpaque(false);
 		
@@ -308,19 +296,14 @@ public class ThanhToanPanel extends JPanel {
 		pI.setOpaque(false);
 		pI.setBorder(new EmptyBorder(15, 0, 0, 0));
 		
-		// Dòng 1
 		pI.add(lblMaDonInfo = createNormalLabel("Mã đơn: --")); 
 		pI.add(lblMaBanInfo = createNormalLabel("Mã bàn: --"));
 		
-		// Dòng 2
 		pI.add(lblThoiGianInfo = createNormalLabel("Thời gian: --"));
 		pI.add(lblKhachHangInfo = createNormalLabel("Khách hàng: --"));
 		
-		// Dòng 3
-		pI.add(lblHangInfo = createNormalLabel("Hạng KH: --"));
 		pI.add(lblMaNVInfo = createNormalLabel("Mã nhân viên: --")); 
-		
-		// Dòng 4
+		pI.add(lblHangInfo = createNormalLabel("Hạng KH: --"));
 		pI.add(lblGhiChuInfo = createNormalLabel("Ghi chú: --")); 
 		pI.add(new JLabel("")); 
 		
@@ -361,7 +344,6 @@ public class ThanhToanPanel extends JPanel {
 		pTableCard.add(scrollTbl, BorderLayout.CENTER);
 		pL.add(pTableCard, BorderLayout.CENTER);
 
-		// ==================== PHẢI ====================
 		RoundedPanel pR = new RoundedPanel(20, Color.WHITE); 
 		pR.setLayout(new BorderLayout()); 
 		pR.setBorder(new EmptyBorder(25, 25, 25, 25));
@@ -404,19 +386,7 @@ public class ThanhToanPanel extends JPanel {
 		cbPhuongThuc.setBackground(new Color(255, 204, 204));
 		pInv.add(createRow("Phương thức TT:", cbPhuongThuc));
 		
-		pnlQRCode = new JPanel(new BorderLayout());
-		pnlQRCode.setOpaque(false);
-		pnlQRCode.setPreferredSize(new Dimension(200, 150));
-		pnlQRCode.setMaximumSize(new Dimension(200, 150));
-		JLabel lblQRImage = new JLabel("MÃ QR", SwingConstants.CENTER);
-		lblQRImage.setBorder(new LineBorder(Color.LIGHT_GRAY, 1, true));
-		pnlQRCode.add(lblQRImage, BorderLayout.CENTER);
-		pnlQRCode.setVisible(false);
-		JPanel pnlQRCenter = new JPanel(new FlowLayout(FlowLayout.CENTER));
-		pnlQRCenter.setOpaque(false);
-		pnlQRCenter.add(pnlQRCode);
 		pInv.add(Box.createRigidArea(new Dimension(0, 10)));
-		pInv.add(pnlQRCenter);
 
 		JScrollPane scrollInv = new JScrollPane(pInv);
 		scrollInv.setBorder(BorderFactory.createEmptyBorder());
@@ -473,19 +443,22 @@ public class ThanhToanPanel extends JPanel {
 	}
 
 	private void setupListeners() {
-		btnTim.addActionListener(e -> {
-			String k = txtSearch.getText().trim().toLowerCase();
-			for (Component c : pnlGridBan.getComponents()) {
-				if (c instanceof JButton) {
-					JButton b = (JButton) c;
-					String g = b.getClientProperty("ghiChu") != null ? b.getClientProperty("ghiChu").toString().toLowerCase() : "";
-					String textHienThi = b.getText().toLowerCase();
-					b.setVisible(textHienThi.contains(k) || g.contains(k));
+		txtSearch.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+			private void filter() {
+				String k = txtSearch.getText().trim().toLowerCase();
+				for (Component c : pnlGridBan.getComponents()) {
+					if (c instanceof JButton) {
+						JButton b = (JButton) c;
+						String g = b.getClientProperty("ghiChu") != null ? b.getClientProperty("ghiChu").toString().toLowerCase() : "";
+						String textHienThi = b.getText().toLowerCase();
+						b.setVisible(textHienThi.contains(k) || g.contains(k));
+					}
 				}
 			}
+			public void insertUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+			public void removeUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+			public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
 		});
-
-		btnLamMoi.addActionListener(e -> loadDuLieuBanTuDB());
 		
 		cbKhuyenMai.addActionListener(e -> {
 			if (!isUpdatingKhuyenMai) {
@@ -493,7 +466,6 @@ public class ThanhToanPanel extends JPanel {
 			}
 		});
 		
-		cbPhuongThuc.addActionListener(e -> pnlQRCode.setVisible(cbPhuongThuc.getSelectedIndex() == 1));
 		btnHuy.addActionListener(e -> cardLayoutDetail.show(pnlDetailContainer, "EMPTY"));
 		btnXacNhan.addActionListener(e -> handleXacNhan());
 	}
@@ -514,9 +486,9 @@ public class ThanhToanPanel extends JPanel {
 			double tongChiTieuMoi = tongChiTieuCu + tienThanhToan;
 
 			String hangMoi = "Bạc";
-			if (tongChiTieuMoi >= 20000000) {
+			if (tongChiTieuMoi >= 10000000) {
                 hangMoi = "Kim Cương";
-            } else if (tongChiTieuMoi >= 10000000) {
+            } else if (tongChiTieuMoi >= 5000000) {
                 hangMoi = "Vàng";
             }
 
@@ -534,7 +506,68 @@ public class ThanhToanPanel extends JPanel {
 
 	private void handleXacNhan() {
 		if (btnActiveBan == null) return;
-		if (JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+		
+		if (cbPhuongThuc.getSelectedIndex() == 1) { // Thanh toán QR
+			JDialog qrDialog = new JDialog((JFrame)SwingUtilities.getWindowAncestor(this), "Quét mã QR Thanh toán", true);
+			qrDialog.setSize(400, 500);
+			qrDialog.setLocationRelativeTo(this);
+			qrDialog.setLayout(new BorderLayout());
+			
+			JPanel pnlTop = new JPanel();
+			pnlTop.setBackground(Color.WHITE);
+			JLabel lblTitle = new JLabel("Khách quét mã QR để thanh toán");
+			lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+			pnlTop.add(lblTitle);
+			
+			JLabel lblImage = new JLabel("MÃ QR", SwingConstants.CENTER);
+			lblImage.setFont(new Font("Segoe UI", Font.BOLD, 18));
+			lblImage.setBorder(BorderFactory.createLineBorder(Color.GRAY, 2));
+			
+			// Load static QR image from local directory
+			try {
+				java.io.File qrFile = new java.io.File("icons/qr.jpg");
+				if (qrFile.exists()) {
+					java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(qrFile);
+					java.awt.Image scaled = img.getScaledInstance(300, 300, java.awt.Image.SCALE_SMOOTH);
+					lblImage.setText("");
+					lblImage.setIcon(new ImageIcon(scaled));
+				} else {
+					lblImage.setText("<html><center>MÃ QR NGÂN HÀNG<br><br><i style='font-size:12px; font-weight:normal'>(Bạn hãy copy ảnh mã QR của quán<br>vào thư mục 'icons' và đặt tên là 'qr.png')</i></center></html>");
+				}
+			} catch (Exception e) {
+				lblImage.setText("Lỗi hiển thị mã QR");
+			}
+			
+			JPanel pnlBot = new JPanel(new FlowLayout());
+			pnlBot.setBackground(Color.WHITE);
+			
+			JButton btnOk = new JButton("Xác nhận");
+			btnOk.setBackground(new Color(40, 167, 69));
+			btnOk.setForeground(Color.WHITE);
+			btnOk.setFont(new Font("Segoe UI", Font.BOLD, 14));
+			
+			JButton btnCancel = new JButton("Hủy bỏ");
+			btnCancel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+			btnCancel.setBackground(new Color(220, 53, 69));
+			btnCancel.setForeground(Color.WHITE);
+			
+			boolean[] confirmed = {false};
+			btnOk.addActionListener(e -> { confirmed[0] = true; qrDialog.dispose(); });
+			btnCancel.addActionListener(e -> { qrDialog.dispose(); });
+			
+			pnlBot.add(btnOk);
+			pnlBot.add(btnCancel);
+			
+			qrDialog.add(pnlTop, BorderLayout.NORTH);
+			qrDialog.add(lblImage, BorderLayout.CENTER);
+			qrDialog.add(pnlBot, BorderLayout.SOUTH);
+			qrDialog.getContentPane().setBackground(Color.WHITE);
+			qrDialog.setVisible(true);
+			
+			if (!confirmed[0]) return;
+		} else {
+			if (JOptionPane.showConfirmDialog(this, "Xác nhận thanh toán?", "Xác nhận", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+		}
 
 		String maBanGoc = btnActiveBan.getClientProperty("maBanGoc").toString();
 		String tenBanHienThi = btnActiveBan.getText();
@@ -704,18 +737,13 @@ public class ThanhToanPanel extends JPanel {
 			maKhachHangHienTai = maKhachHangThuTap;
 
 			if (maKhachHangThuTap != null && !maKhachHangThuTap.trim().isEmpty()) {
-				String sqlKH = "SELECT hoTen, hangThanhVien FROM KhachHang WHERE maKhachHang = ?";
-				try (PreparedStatement psKH = con.prepareStatement(sqlKH)) {
-					psKH.setString(1, maKhachHangThuTap);
-					try (ResultSet rsKH = psKH.executeQuery()) {
-						if (rsKH.next()) {
-							String tenKH = rsKH.getString("hoTen");
-							String hangKH = rsKH.getString("hangThanhVien") != null ? rsKH.getString("hangThanhVien") : "Bạc";
-
-							lblKhachHangInfo.setText("Khách hàng: " + tenKH);
-							lblHangInfo.setText("Hạng KH: " + hangKH);
-						}
-					}
+				KhachHang kh = new KhachHang_DAO().getKhachHangByMa(maKhachHangThuTap);
+				if (kh != null) {
+					lblKhachHangInfo.setText("Khách hàng: " + kh.getHoTen());
+					lblHangInfo.setText("Hạng KH: " + kh.getHangThanhVien());
+				} else {
+				    lblKhachHangInfo.setText("Khách hàng: Khách vãng lai");
+				    lblHangInfo.setText("");
 				}
 			} else {
 				lblKhachHangInfo.setText("Khách hàng: Khách vãng lai");
@@ -753,12 +781,28 @@ public class ThanhToanPanel extends JPanel {
 				if (now.isBefore(LocalTime.of(12, 0)) || now.isAfter(LocalTime.of(16, 0))) continue;
 			}
 
+			boolean isKhachDungMon = dt.contains("món");
+			boolean isTheoHang = dt.contains("hạng");
+
 			if (ten.contains("(") && ten.endsWith(")")) {
 				String tM = ten.substring(ten.lastIndexOf("(") + 1, ten.length() - 1).toLowerCase();
-				boolean co = false;
-				for (int i = 0; i < modelChiTiet.getRowCount(); i++) 
-					if (modelChiTiet.getValueAt(i, 1).toString().toLowerCase().contains(tM)) { co = true; break; }
-				if (!co) continue;
+				
+				if (isKhachDungMon) {
+				    boolean co = false;
+				    for (int i = 0; i < modelChiTiet.getRowCount(); i++) 
+					    if (modelChiTiet.getValueAt(i, 1).toString().toLowerCase().contains(tM)) { co = true; break; }
+				    if (!co) continue;
+				} else if (isTheoHang) {
+				    String hangKH = lblHangInfo.getText().replace("Hạng KH:", "").trim().toLowerCase();
+			        if (hangKH.equals("--") || hangKH.isEmpty() || !tM.contains(hangKH)) {
+			            continue;
+			        }
+				}
+			} else if (isTheoHang) {
+			    String hangKH = lblHangInfo.getText().replace("Hạng KH:", "").trim().toLowerCase();
+			    if (hangKH.equals("--") || hangKH.isEmpty() || !dt.contains(hangKH)) {
+			        continue;
+			    }
 			}
 			
 			listKhuyenMaiHienTai.add(km); 

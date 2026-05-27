@@ -4,8 +4,11 @@ import java.awt.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.ZoneId;
+import java.util.Date;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import com.toedter.calendar.JDateChooser;
 
 import dao.KhuyenMai_DAO;
 import entity.DoiTuongKM;
@@ -21,7 +24,8 @@ public class ChiTietKhuyenMaiForm extends JDialog {
 
     private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private JTextField txtMa, txtTen, txtGiaTri, txtNgayBD, txtNgayKT;
+    private JTextField txtMa, txtTen, txtGiaTri;
+    private JDateChooser dcNgayBD, dcNgayKT;
     private JComboBox<DoiTuongKM> cbDoiTuong;
     private JComboBox<String> cbHinhThuc;
     private JComboBox<String> cbTrangThai;
@@ -52,8 +56,8 @@ public class ChiTietKhuyenMaiForm extends JDialog {
         txtTen = createInput();
         cbHinhThuc = new JComboBox<>(new String[]{"Giảm phần trăm", "Giảm giá"});
         txtGiaTri = createInput();
-        txtNgayBD = createInput();
-        txtNgayKT = createInput();
+        dcNgayBD = createDateChooser();
+        dcNgayKT = createDateChooser();
         cbDoiTuong = new JComboBox<>(DoiTuongKM.values());
         cbTrangThai = new JComboBox<>(new String[]{"Sắp diễn ra", "Đang chạy", "Đã kết thúc", "Ngừng áp dụng"});
 
@@ -61,8 +65,8 @@ public class ChiTietKhuyenMaiForm extends JDialog {
         main.add(createLabel("Tên chương trình")); main.add(txtTen);
         main.add(createLabel("Hình thức")); main.add(cbHinhThuc);
         main.add(createLabel("Giá trị")); main.add(txtGiaTri);
-        main.add(createLabel("Ngày bắt đầu (dd/MM/yyyy)")); main.add(txtNgayBD);
-        main.add(createLabel("Ngày kết thúc (dd/MM/yyyy)")); main.add(txtNgayKT);
+        main.add(createLabel("Ngày bắt đầu")); main.add(dcNgayBD);
+        main.add(createLabel("Ngày kết thúc")); main.add(dcNgayKT);
         main.add(createLabel("Đối tượng áp dụng")); main.add(cbDoiTuong);
         main.add(createLabel("Trạng thái")); main.add(cbTrangThai);
 
@@ -102,15 +106,15 @@ public class ChiTietKhuyenMaiForm extends JDialog {
         txtTen.setText(kmCurrent.getTenKM());
         cbHinhThuc.setSelectedItem(kmCurrent.getLoaiKM());
         
-        // Bỏ số .0 nếu là số chẵn cho đẹp
-        if (kmCurrent.getGiaTri() % 1 == 0) {
-            txtGiaTri.setText(String.format("%.0f", kmCurrent.getGiaTri()));
-        } else {
-            txtGiaTri.setText(String.valueOf(kmCurrent.getGiaTri()));
+        txtGiaTri.setText(String.valueOf(kmCurrent.getGiaTri()));
+        
+        if (kmCurrent.getNgayBatDau() != null) {
+            dcNgayBD.setDate(Date.from(kmCurrent.getNgayBatDau().atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        }
+        if (kmCurrent.getNgayKetThuc() != null) {
+            dcNgayKT.setDate(Date.from(kmCurrent.getNgayKetThuc().atStartOfDay(ZoneId.systemDefault()).toInstant()));
         }
         
-        txtNgayBD.setText(kmCurrent.getNgayBatDau() != null ? kmCurrent.getNgayBatDau().format(formatter) : "");
-        txtNgayKT.setText(kmCurrent.getNgayKetThuc() != null ? kmCurrent.getNgayKetThuc().format(formatter) : "");
         cbDoiTuong.setSelectedItem(kmCurrent.getDoiTuongApDung());
         cbTrangThai.setSelectedItem(kmCurrent.getTrangThai());
     }
@@ -122,8 +126,13 @@ public class ChiTietKhuyenMaiForm extends JDialog {
             }
 
             double val = Double.parseDouble(txtGiaTri.getText().trim());
-            LocalDate ngayBD = LocalDate.parse(txtNgayBD.getText().trim(), formatter);
-            LocalDate ngayKT = LocalDate.parse(txtNgayKT.getText().trim(), formatter);
+            
+            if (dcNgayBD.getDate() == null || dcNgayKT.getDate() == null) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn ngày!"); return;
+            }
+            
+            LocalDate ngayBD = dcNgayBD.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalDate ngayKT = dcNgayKT.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
             if (ngayKT.isBefore(ngayBD)) {
                 JOptionPane.showMessageDialog(this, "Ngày kết thúc phải sau ngày bắt đầu!"); return;
@@ -161,8 +170,32 @@ public class ChiTietKhuyenMaiForm extends JDialog {
     private JTextField createInput() {
         JTextField txt = new JTextField();
         txt.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txt.setBorder(BorderFactory.createLineBorder(BORDER, 1));
+        txt.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
         return txt;
+    }
+    
+    private JDateChooser createDateChooser() {
+        JDateChooser dateChooser = new JDateChooser();
+        dateChooser.setDateFormatString("dd/MM/yyyy");
+        dateChooser.setPreferredSize(new Dimension(200, 35));
+        dateChooser.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        
+        JTextField editor = (JTextField) dateChooser.getDateEditor().getUiComponent();
+        editor.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        editor.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        editor.setBackground(Color.WHITE);
+        
+        JButton btn = dateChooser.getCalendarButton();
+        btn.setIcon(null);
+        btn.setText("📅"); 
+        btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        btn.setBackground(Color.WHITE);
+        btn.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFocusPainted(false);
+        
+        dateChooser.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
+        return dateChooser;
     }
 
     private JLabel createLabel(String text) {

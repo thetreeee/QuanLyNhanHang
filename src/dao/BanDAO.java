@@ -11,7 +11,40 @@ public class BanDAO {
     // Lấy danh sách tất cả các bàn
     public List<Ban> getAllBan() {
         List<Ban> dsBan = new ArrayList<>();
-        String sql = "SELECT * FROM Ban";
+        String sql = "SELECT * FROM Ban WHERE trangThai NOT LIKE N'%xóa%' AND trangThai NOT LIKE N'%xoá%'";
+        
+        try (Connection con = SQLConnection.getConnection();
+             Statement stmt = con.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+             
+            while (rs.next()) {
+                Integer maKhoi = null;
+                if (rs.getObject("maKhoi") != null) {
+                    maKhoi = rs.getInt("maKhoi");
+                }
+                String maBanChinh = rs.getString("maBanChinh");
+
+                Ban ban = new Ban(
+                    rs.getString("maBan"),
+                    rs.getString("tenBan"),
+                    rs.getInt("soChoNgoi"), 
+                    rs.getString("trangThai"),
+                    rs.getString("viTri"),
+                    maKhoi,
+                    maBanChinh
+                );
+                dsBan.add(ban);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return dsBan;
+    }
+
+    // Lấy danh sách các bàn đã xoá
+    public List<Ban> getBanDaXoa() {
+        List<Ban> dsBan = new ArrayList<>();
+        String sql = "SELECT * FROM Ban WHERE trangThai LIKE N'%xóa%' OR trangThai LIKE N'%xoá%'";
         
         try (Connection con = SQLConnection.getConnection();
              Statement stmt = con.createStatement();
@@ -106,7 +139,7 @@ public class BanDAO {
 
     // Xóa bàn
     public boolean deleteBan(String maBan) {
-        String sql = "DELETE FROM Ban WHERE maBan = ?";
+        String sql = "UPDATE Ban SET trangThai = N'Đã xoá' WHERE maBan = ?";
         try (Connection con = SQLConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
              

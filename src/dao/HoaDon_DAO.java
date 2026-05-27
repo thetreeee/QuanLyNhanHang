@@ -15,8 +15,8 @@ public class HoaDon_DAO {
 
 	public List<HoaDon> getAll() {
 		List<HoaDon> ds = new ArrayList<>();
-		// ĐÃ THÊM: Gọi thêm cột maKhachHang từ SQL
-		String sql = "SELECT maHD, ngayLap, maKM, maNV, maBan, phuongThucTT, tongThanhTien, maKhachHang FROM HoaDon ORDER BY ngayLap DESC";
+		// ĐÃ THÊM: LEFT JOIN với KhachHang để lấy hoTen luôn, tối ưu tốc độ (không bị N+1 query)
+		String sql = "SELECT h.maHD, h.ngayLap, h.maKM, h.maNV, h.maBan, h.phuongThucTT, h.tongThanhTien, h.maKhachHang, k.hoTen AS tenKhachHang FROM HoaDon h LEFT JOIN KhachHang k ON h.maKhachHang = k.maKhachHang ORDER BY h.ngayLap DESC";
 		try (Connection con = SQLConnection.getConnection();
 				Statement st = con.createStatement();
 				ResultSet rs = st.executeQuery(sql)) {
@@ -44,10 +44,11 @@ public class HoaDon_DAO {
 					hd.setKhuyenMai(km);
 				}
 
-				// ĐÃ THÊM: Lấy mã khách hàng gán vào đối tượng HoaDon
+				// ĐÃ THÊM: Lấy mã và TÊN khách hàng gán vào đối tượng HoaDon
 				if (rs.getString("maKhachHang") != null && !rs.getString("maKhachHang").isEmpty()) {
 					KhachHang kh = new KhachHang();
 					kh.setMaKH(rs.getString("maKhachHang"));
+					kh.setHoTen(rs.getString("tenKhachHang")); // Lấy từ alias trong SQL
 					hd.setKhachHang(kh);
 				}
 

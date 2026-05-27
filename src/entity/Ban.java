@@ -98,7 +98,8 @@ public class Ban {
 		String tt = trangThai.trim();
 		// Nới lỏng kiểm tra để hỗ trợ các trạng thái linh hoạt trong dự án
 		if (tt.equalsIgnoreCase("Trống") || tt.equalsIgnoreCase("Đã đặt") || 
-			tt.equalsIgnoreCase("Đang sử dụng") || tt.equalsIgnoreCase("Đang dùng")) {
+			tt.equalsIgnoreCase("Đang sử dụng") || tt.equalsIgnoreCase("Đang dùng") ||
+			tt.equalsIgnoreCase("Đã xoá") || tt.equalsIgnoreCase("Đã xóa")) {
 			this.trangThai = tt;
 		} else {
 			this.trangThai = "Trống";

@@ -226,6 +226,21 @@ public class DonDatBanDAO {
         return false;
     }
 
+    public boolean updateThongTinChiTietDon(String maDon, java.time.LocalDate ngayDat, java.time.LocalTime thoiGian, int soKhach, String trangThai) {
+        String sql = "UPDATE DonDatBan SET ngayDat = ?, thoiGian = ?, trangThai = ? WHERE maDon = ?";
+        try (Connection con = SQLConnection.getConnection(); 
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setDate(1, java.sql.Date.valueOf(ngayDat));
+            ps.setTime(2, java.sql.Time.valueOf(thoiGian));
+            ps.setString(3, trangThai);
+            ps.setString(4, maDon);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+            return false;
+        }
+    }
+
     /**
      * 5. KIỂM TRA TRÙNG LỊCH ĐẶT BÀN
      */
@@ -259,24 +274,35 @@ public class DonDatBanDAO {
      */
     public boolean autoUpdateMauBan() {
         boolean hasChange = false;
+        String sqlToXanh = "UPDATE Ban SET trangThai = N'Trống' " +
+                           "WHERE trangThai = N'Đã đặt' AND maBan NOT IN (" +
+                           "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
+                           "    WHERE d.trangThai = N'Đã đặt' AND d.ngayDat = ? " +
+                           "    AND DATEDIFF(MINUTE, CAST(? AS TIME), CAST(d.thoiGian AS TIME)) BETWEEN -30 AND 120" +
+                           ")";
+                           
+        String sqlToVang = "UPDATE Ban SET trangThai = N'Đã đặt' " +
+                           "WHERE trangThai = N'Trống' AND maBan IN (" +
+                           "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
+                           "    WHERE d.trangThai = N'Đã đặt' AND d.ngayDat = ? " +
+                           "    AND DATEDIFF(MINUTE, CAST(? AS TIME), CAST(d.thoiGian AS TIME)) BETWEEN -30 AND 120" +
+                           ")";
+                           
         try (Connection con = SQLConnection.getConnection();
-             Statement stmt = con.createStatement()) {
+             PreparedStatement psXanh = con.prepareStatement(sqlToXanh);
+             PreparedStatement psVang = con.prepareStatement(sqlToVang)) {
              
-            String sqlToXanh = "UPDATE Ban SET trangThai = N'Trống' " +
-                               "WHERE trangThai = N'Đã đặt' AND maBan NOT IN (" +
-                               "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
-                               "    WHERE d.trangThai = N'Đã đặt' " +
-                               "    AND DATEDIFF(MINUTE, GETDATE(), d.thoiGian) BETWEEN -30 AND 120" +
-                               ")";
-            int countXanh = stmt.executeUpdate(sqlToXanh);
+            java.time.LocalDate today = java.time.LocalDate.now();
+            java.time.LocalTime now = java.time.LocalTime.now();
+            String timeStr = now.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
             
-            String sqlToVang = "UPDATE Ban SET trangThai = N'Đã đặt' " +
-                               "WHERE trangThai = N'Trống' AND maBan IN (" +
-                               "    SELECT c.maBan FROM DonDatBan d JOIN ChiTietDatBan c ON d.maDon = c.maDon " +
-                               "    WHERE d.trangThai = N'Đã đặt' " +
-                               "    AND DATEDIFF(MINUTE, GETDATE(), d.thoiGian) BETWEEN -30 AND 120" +
-                               ")";
-            int countVang = stmt.executeUpdate(sqlToVang);
+            psXanh.setDate(1, java.sql.Date.valueOf(today));
+            psXanh.setString(2, timeStr);
+            int countXanh = psXanh.executeUpdate();
+            
+            psVang.setDate(1, java.sql.Date.valueOf(today));
+            psVang.setString(2, timeStr);
+            int countVang = psVang.executeUpdate();
             
             if (countXanh > 0 || countVang > 0) hasChange = true;
             

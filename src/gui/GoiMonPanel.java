@@ -36,6 +36,25 @@ public class GoiMonPanel extends JPanel {
 
     private MonAn_DAO monAnDAO = new MonAn_DAO();
 
+    private String currentCategory = "Tất cả";
+    private List<JButton> categoryButtons = new ArrayList<>();
+
+    private void updateButtonStyle(JButton btn, boolean isSelected) {
+        if (isSelected) {
+            btn.setBackground(new Color(255, 99, 99)); 
+            btn.setForeground(Color.WHITE);
+        } else {
+            btn.setBackground(Color.WHITE);
+            btn.setForeground(new Color(50, 50, 50)); 
+        }
+    }
+
+    private void updateCategoryButtons(JButton selectedBtn) {
+        for (JButton btn : categoryButtons) {
+            updateButtonStyle(btn, btn == selectedBtn);
+        }
+    }
+
     public GoiMonPanel(Ban ban, NhanVien nv) {
         this.ban = ban;
         this.nv = nv; 
@@ -43,7 +62,34 @@ public class GoiMonPanel extends JPanel {
         setLayout(new BorderLayout(10,10));
         setBorder(BorderFactory.createEmptyBorder(15,15,15,15));
 
-        // ===== SEARCH =====
+        // ===== TOP PANEL (FILTER & SEARCH) =====
+        JPanel pnlTop = new JPanel(new BorderLayout());
+        pnlTop.setOpaque(false);
+
+        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlFilter.setOpaque(false);
+
+        String[] categories = {"Tất cả", "Khai vị", "Món chính", "Món nước", "Tráng miệng"};
+        for (String cat : categories) {
+            JButton btnCat = new JButton(cat);
+            btnCat.setPreferredSize(new Dimension(110, 38));
+            btnCat.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btnCat.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnCat.setFocusPainted(false);
+            
+            updateButtonStyle(btnCat, cat.equals("Tất cả"));
+            btnCat.addActionListener(e -> {
+                updateCategoryButtons(btnCat);
+                currentCategory = btnCat.getText();
+                loadMenu();
+            });
+            categoryButtons.add(btnCat);
+            pnlFilter.add(btnCat);
+        }
+
+        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        pnlSearch.setOpaque(false);
+
         txtSearch = new JTextField();
         txtSearch.setPreferredSize(new Dimension(200, 40));
         txtSearch.setToolTipText("Tìm theo tên hoặc mã món...");
@@ -54,7 +100,12 @@ public class GoiMonPanel extends JPanel {
             public void changedUpdate(DocumentEvent e) { loadMenu(); }
         });
 
-        add(txtSearch, BorderLayout.NORTH);
+        pnlSearch.add(txtSearch);
+        
+        pnlTop.add(pnlFilter, BorderLayout.WEST);
+        pnlTop.add(pnlSearch, BorderLayout.EAST);
+        
+        add(pnlTop, BorderLayout.NORTH);
 
         // ===== MENU =====
         pnlMenu = new JPanel(new GridLayout(0, 4, 10, 15)); 
@@ -197,6 +248,9 @@ public class GoiMonPanel extends JPanel {
                     && !m.getMaMon().toLowerCase().contains(keyword)) continue;
 
             if (m.getGiaBan() <= 0) continue;
+
+            boolean matchesCat = currentCategory.equals("Tất cả") || (m.getLoaiMon() != null && m.getLoaiMon().equalsIgnoreCase(currentCategory));
+            if (!matchesCat) continue;
 
             pnlMenu.add(createMonCard(m));
         }
