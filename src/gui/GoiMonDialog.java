@@ -13,13 +13,13 @@ public class GoiMonDialog extends JDialog {
 	 */
 	private static final long serialVersionUID = 1L;
 
-	public GoiMonDialog(Window parent, Ban ban, NhanVien nv) {
+	public GoiMonDialog(Window parent, Ban ban, NhanVien nv, String ghiChuMacDinh) {
         super(parent, "Gọi món - " + ban.getTenBan(), ModalityType.APPLICATION_MODAL);
 
         setSize(1000, 650);
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
 
-        add(new GoiMonPanel(ban, nv), BorderLayout.CENTER);
+        add(new GoiMonPanel(ban, nv, ghiChuMacDinh), BorderLayout.CENTER);
     }
 }

@@ -610,6 +610,17 @@ public class SoDoBan_Normal_Panel extends JPanel {
                     }
                 }
                 g2.dispose();
+                super.paintComponent(g);
+            }
+
+            @Override
+            protected void paintBorder(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(3f));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 25, 25);
+                g2.dispose();
             }
         };
         card.setLayout(new OverlayLayout(card));

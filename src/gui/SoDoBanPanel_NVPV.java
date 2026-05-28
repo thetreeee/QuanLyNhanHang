@@ -382,17 +382,23 @@ public class SoDoBanPanel_NVPV extends JPanel {
                     }
 
                     Ban banTruyenVao = ban; 
+                    String ghiChuTuDong = "";
                     
-                    if (ban.getMaBanChinh() != null && !ban.getMaBanChinh().equalsIgnoreCase(ban.getMaBan())) {
-                        banTruyenVao = new Ban();
-                        banTruyenVao.setMaBan(ban.getMaBanChinh());
-                        banTruyenVao.setTenBan(ban.getTenBan() + " (Nằm trong Khối " + ban.getMaBanChinh() + ")");
+                    if (ban.getMaKhoi() != null && ban.getMaKhoi() > 0) {
+                        ghiChuTuDong = "(" + ban.getMaBan() + ") ";
+                        
+                        if (ban.getMaBanChinh() != null && !ban.getMaBanChinh().equalsIgnoreCase(ban.getMaBan())) {
+                            banTruyenVao = new Ban();
+                            banTruyenVao.setMaBan(ban.getMaBanChinh());
+                            banTruyenVao.setTenBan(ban.getTenBan() + " (Nằm trong Khối " + ban.getMaBanChinh() + ")");
+                        }
                     }
                     
                     GoiMonDialog dialog = new GoiMonDialog(
                             SwingUtilities.getWindowAncestor(card),
                             banTruyenVao, 
-                            nhanVien
+                            nhanVien,
+                            ghiChuTuDong
                     );
                     dialog.setVisible(true);
                 }

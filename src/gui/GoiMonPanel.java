@@ -55,7 +55,7 @@ public class GoiMonPanel extends JPanel {
         }
     }
 
-    public GoiMonPanel(Ban ban, NhanVien nv) {
+    public GoiMonPanel(Ban ban, NhanVien nv, String ghiChuMacDinh) {
         this.ban = ban;
         this.nv = nv; 
         
@@ -188,6 +188,9 @@ public class GoiMonPanel extends JPanel {
         txtGhiChu.setLineWrap(true);
         txtGhiChu.setWrapStyleWord(true);
         txtGhiChu.setBorder(BorderFactory.createTitledBorder("Ghi chú phiếu bếp"));
+        if (ghiChuMacDinh != null && !ghiChuMacDinh.trim().isEmpty()) {
+            txtGhiChu.setText(ghiChuMacDinh);
+        }
 
         JScrollPane scrollNote = new JScrollPane(txtGhiChu);
         scrollNote.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));

@@ -1000,7 +1000,11 @@ public class ThongKePanel extends JPanel {
             for (Map.Entry<String, Double> entry : data.entrySet()) {
                 double val = entry.getValue();
                 xPoints[i] = paddingX + i * step;
-                yPoints[i] = getHeight() - paddingY - (int) ((val / maxVal) * height);
+                int h = (int) ((val / maxVal) * height);
+                if (val > 0 && h < 8) {
+                    h = 8; // Đảm bảo đỉnh có doanh thu luôn nhô lên khỏi trục hoành (ít nhất 8px)
+                }
+                yPoints[i] = getHeight() - paddingY - h;
                 i++;
             }
 
